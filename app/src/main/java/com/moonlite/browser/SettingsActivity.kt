@@ -147,9 +147,19 @@ class SettingsActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("Language / locale")
             .setItems(languages) { _, which ->
-                Toast.makeText(this, "Locale profile: ${languages[which]}", Toast.LENGTH_SHORT).show()
-                // FingerprintSync owns the actual per-profile language override.
-                AppPrefs.edit(this).putString("locale_override", languages[which]).apply()
+                val locale = languages[which]
+                AppPrefs.edit(this).putString("locale_override", locale).apply()
+                // Applies to the tab that's open right now too — without
+                // this, the setting only ever took effect for tabs opened
+                // *after* the change, which looks like it silently did
+                // nothing on whatever page you were already looking at.
+                val tm = service?.tabManager
+                val webView = tm?.activeWebView()
+                if (tm != null && webView != null) {
+                    val merged = (tm.getEmulation(webView) ?: EmulationOverrides()).copy(locale = locale)
+                    tm.setEmulation(webView, merged)
+                }
+                Toast.makeText(this, "Locale profile: $locale", Toast.LENGTH_SHORT).show()
             }.show()
     }
 
