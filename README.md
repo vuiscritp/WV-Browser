@@ -221,6 +221,7 @@ Request JSON dùng `Content-Type: application/json`.
 |---|---|---|
 | `/status` | GET | public, không trả secret |
 | `/health` | GET | uptime, số tab, memory |
+| `/stream?types=` | GET | Server-Sent Events, xem mục riêng bên dưới |
 
 ## Navigation
 
@@ -269,6 +270,39 @@ curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
 ```
 
 `/eval` là endpoint mạnh nhất. JavaScript chạy trong page context của tab active.
+
+## Stream (Server-Sent Events)
+
+```bash
+curl -N -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/stream?types=console,network"
+```
+
+Đẩy live các entry mới của `/console`/`/network` cho tab active ngay khi
+chúng xảy ra — dùng để theo dõi automation real-time thay vì polling
+`/console`/`/network` liên tục. `?types=` lọc loại (`console`, `network`,
+mặc định cả hai). Mỗi event là 1 dòng `data: {...json...}`.
+
+Mỗi kết nối tự đóng sau tối đa 55 giây (an toàn: nếu client rớt mạng mà
+NanoHTTPD không phát hiện được để tự đóng stream, thread nền vẫn chắc chắn
+dừng sau mốc này) — client SSE chuẩn (`EventSource`) tự reconnect khi
+stream đóng, nên trải nghiệm thực tế là liên tục.
+
+## Dịch trang
+
+```bash
+curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -X POST "$BASE/translate" \
+  -d '{"target":"vi"}'
+```
+
+Dùng endpoint không chính thức của Google Translate (`translate_a/single`,
+không cần API key, không đảm bảo ổn định lâu dài vì có thể bị Google đổi/
+chặn bất kỳ lúc nào). Mỗi đoạn text khác nhau trên trang chỉ dịch 1 lần dù
+lặp lại bao nhiêu lần (menu, footer...), áp kết quả vào DOM ngay khi từng
+đoạn dịch xong (không chờ hết cả trang), và 1 đoạn lỗi chỉ mất đúng đoạn đó
+— không hỏng cả trang.
 
 ## Upload
 
@@ -640,3 +674,37 @@ Prefer this order for new UI assets:
 4. PIL/raster assets only when a visual genuinely cannot be represented cleanly as a vector/drawable.
 
 Avoid emoji as functional UI icons because their glyph shape varies by Android vendor/font.
+
+## v14 bugfix + streaming
+
+Three real bugs found and fixed:
+
+- **Translate was almost non-functional.** The `HttpURLConnection` calls to
+  Google's `gtx` endpoint never set a `User-Agent` header, leaving Java's own
+  default (`Java/17...`). That endpoint aggressively blocks/rate-limits that
+  exact default UA under real page-translate load (dozens of requests in a
+  burst) — most came back HTTP 403, and those were silently swallowed, so
+  only the first few lucky requests before the block kicked in ever got
+  translated. Fixed by sending a normal browser User-Agent/Accept-Language/
+  Referer (the same fix other gtx-endpoint clients use), applying each
+  text's translation to the DOM the moment it resolves instead of waiting
+  for the whole batch (visibly progressive instead of one long pause),
+  retrying once on transient failures, and staggering request dispatch to
+  avoid re-triggering the same block. Auto-translate also now waits ~900ms
+  after `onPageFinished` before running, since a JS-rendered SPA's content
+  often isn't in the DOM yet at that exact moment.
+- **Settings > Language did nothing.** Picking a locale wrote `locale_override`
+  to prefs and showed a success Toast, but nothing anywhere ever read that
+  pref back — a fully dead setting. Now wired into `TabManager`'s
+  `defaultEmulationProvider` (applies to every new tab) and applied
+  immediately to the tab that's already open when changed.
+- **`UserScriptManager` had no synchronization.** `add()`/`remove()` run on a
+  NanoHTTPD request thread (`POST /userscript`) while `buildInjectionFor()`
+  runs on the main thread on every page load — racing those against a plain
+  `ArrayList` risks `ConcurrentModificationException`. Now `@Synchronized`,
+  matching the convention already used in `TabManager`.
+
+New: `GET /stream` — Server-Sent Events pushing live `/console` and
+`/network` entries for the active tab as they happen, instead of polling
+those endpoints in a loop. See section 6.
+
