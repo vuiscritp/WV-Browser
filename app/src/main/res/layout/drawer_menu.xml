@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/navy_bg"
+    android:fitsSystemWindows="true"
+    android:overScrollMode="never">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingBottom="18dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="18dp"
+            android:paddingTop="22dp"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:src="@drawable/ic_launcher" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="11dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="MoonLite"
+                    android:textColor="@color/text_white"
+                    android:textSize="17sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:text="Local browser control"
+                    android:textColor="@color/text_dim"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout style="@style/DrawerCard">
+            <TextView
+                android:id="@+id/menuApiToken"
+                style="@style/DrawerItem"
+                android:drawableStart="@drawable/ic_key"
+                android:text="API token  ·  chạm để sao chép" />
+
+            <View style="@style/DrawerRowDivider" />
+
+            <TextView
+                android:id="@+id/menuSettings"
+                style="@style/DrawerItem"
+                android:drawableStart="@drawable/ic_settings"
+                android:text="Cài đặt" />
+        </LinearLayout>
+
+        <TextView style="@style/DrawerSectionLabel" android:text="TRÌNH DUYỆT" />
+        <LinearLayout style="@style/DrawerCard">
+            <TextView android:id="@+id/menuDesktopMode" style="@style/DrawerItem" android:drawableStart="@drawable/ic_desktop" android:text="Chế độ Desktop: TẮT" />
+            <View style="@style/DrawerRowDivider" />
+            <TextView android:id="@+id/menuUa" style="@style/DrawerItem" android:drawableStart="@drawable/ic_agent" android:text="User-Agent…" />
+            <View style="@style/DrawerRowDivider" />
+            <TextView android:id="@+id/menuSearchEngine" style="@style/DrawerItem" android:drawableStart="@drawable/ic_search" android:text="Công cụ tìm kiếm" />
+        </LinearLayout>
+
+        <TextView style="@style/DrawerSectionLabel" android:text="NGÔN NGỮ" />
+        <LinearLayout style="@style/DrawerCard">
+            <TextView android:id="@+id/menuTranslateNow" style="@style/DrawerItem" android:drawableStart="@drawable/ic_translate" android:text="Dịch trang này" />
+            <View style="@style/DrawerRowDivider" />
+            <TextView android:id="@+id/menuAutoTranslate" style="@style/DrawerItem" android:drawableStart="@drawable/ic_autolang" android:text="Auto-dịch: TẮT" />
+        </LinearLayout>
+
+        <TextView style="@style/DrawerSectionLabel" android:text="BẢO MẬT &amp; HIỆU NĂNG" />
+        <LinearLayout style="@style/DrawerCard">
+            <TextView android:id="@+id/menuAdblock" style="@style/DrawerItem" android:drawableStart="@drawable/ic_shield" android:text="Chặn quảng cáo: TẮT" />
+            <View style="@style/DrawerRowDivider" />
+            <TextView android:id="@+id/menuDevTools" style="@style/DrawerItem" android:drawableStart="@drawable/ic_devtools" android:text="DevTools (remote debug)" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
