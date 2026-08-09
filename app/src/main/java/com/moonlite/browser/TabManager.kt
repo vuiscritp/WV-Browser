@@ -108,7 +108,14 @@ class TabManager(
     // caller (MoonliteService) can push a notification telling whoever's
     // holding the phone to go solve it by hand — a script polling the
     // control API has no way to click a checkbox itself.
-    private val onChallengeDetected: (String) -> Unit = {}
+    private val onChallengeDetected: (String) -> Unit = {},
+    // Baseline emulation applied to every *newly created* tab (e.g. the
+    // Settings > Language override) — separate from setEmulation(), which
+    // is a one-off per-tab call from /emulate. Without this, picking a
+    // language in Settings would only ever have affected whichever tab
+    // happened to be active at that exact moment, and every tab opened
+    // afterward would silently go back to no override at all.
+    private val defaultEmulationProvider: () -> EmulationOverrides? = { null }
 ) {
     private val tabs = mutableListOf<Tab>()
     private var activeIndex = -1
@@ -150,6 +157,7 @@ class TabManager(
         // handlers can be owned by the Tab and removed safely on close.
         tabs.add(tab)
         configureWebView(webView, tab)
+        defaultEmulationProvider()?.let { setEmulation(webView, it) }
         activeIndex = tabs.size - 1
         if (loadUrl != null) BrowserActions.load(webView, loadUrl)
         onActiveTitleChanged(tab.title)
