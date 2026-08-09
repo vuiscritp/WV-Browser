@@ -27,6 +27,8 @@ object AppPrefs {
     fun adBlockEnabled(context: Context) = of(context).getBoolean("adblock_enabled", false)
     fun compactUiEnabled(context: Context) = of(context).getBoolean("compact_ui", true)
     fun tabAnimationEnabled(context: Context) = of(context).getBoolean("tab_animation", true)
+    /** Set from Settings > Language; null means "don't override, use the WebView/device default". */
+    fun localeOverride(context: Context): String? = of(context).getString("locale_override", null)?.ifBlank { null }
 
     /** Stable per-install secret used to authenticate the localhost control API. */
     fun controlToken(context: Context): String {
