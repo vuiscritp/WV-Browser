@@ -22,17 +22,26 @@ class UserScriptManager {
 
     private val scripts = mutableListOf<UserScript>()
 
+    // add()/remove() run on a NanoHTTPD request thread (POST /userscript);
+    // buildInjectionFor() runs on the main thread on every page load. Without
+    // synchronization those two racing is a real (if rare) crash — mutating
+    // a plain ArrayList while another thread iterates it throws
+    // ConcurrentModificationException.
+    @Synchronized
     fun add(script: UserScript) {
         scripts.removeAll { it.name == script.name }
         scripts.add(script)
     }
 
+    @Synchronized
     fun remove(name: String) {
         scripts.removeAll { it.name == name }
     }
 
+    @Synchronized
     fun list(): List<UserScript> = scripts.toList()
 
+    @Synchronized
     fun toJson(): JSONArray {
         val arr = JSONArray()
         scripts.forEach {
@@ -48,6 +57,7 @@ class UserScriptManager {
     }
 
     /** Returns the combined JS to evaluate for the given URL, or null if nothing matches. */
+    @Synchronized
     fun buildInjectionFor(url: String?): String? {
         if (url == null) return null
         val matching = scripts.filter { it.enabled && matches(it.matchPattern, url) }
