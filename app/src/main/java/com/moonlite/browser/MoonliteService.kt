@@ -46,6 +46,7 @@ class MoonliteService : Service() {
 
     private var controlServer: ControlServer? = null
     private val uiListeners = mutableSetOf<() -> Unit>()
+    private val autoTranslateHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val serviceStartTime: Long = System.currentTimeMillis()
 
     override fun onCreate() {
@@ -77,13 +78,23 @@ class MoonliteService : Service() {
             onActiveTitleChanged = { notifyUi() },
             onPageFinishedExtra = { webView, _ ->
                 if (AppPrefs.autoTranslateEnabled(this)) {
-                    translateManager.translatePage(webView, AppPrefs.targetLang(this))
+                    // A short delay, not immediate: onPageFinished fires
+                    // when the initial HTML document is done, but a
+                    // JS-rendered SPA often still has content streaming in
+                    // after that — translating instantly means half the
+                    // text on screen isn't in the DOM yet to translate.
+                    autoTranslateHandler.postDelayed({
+                        translateManager.translatePage(webView, AppPrefs.targetLang(this))
+                    }, AUTO_TRANSLATE_DELAY_MS)
                 }
             },
             desktopModeProvider = { AppPrefs.desktopModeEnabled(this) },
             adBlockProvider = { AppPrefs.adBlockEnabled(this) },
             onTabClosed = { webView -> controlServer?.forgetWebView(webView) },
-            onChallengeDetected = { url -> notifyChallengeDetected(url) }
+            onChallengeDetected = { url -> notifyChallengeDetected(url) },
+            defaultEmulationProvider = {
+                AppPrefs.localeOverride(applicationContext)?.let { locale -> EmulationOverrides(locale = locale) }
+            }
         )
         tabManager.newTab(SearchEngines.homepage(this))
 
@@ -224,5 +235,6 @@ class MoonliteService : Service() {
         private const val NOTIFICATION_ID = 1
         private const val CHALLENGE_CHANNEL_ID = "moonlite_challenge"
         private const val CHALLENGE_NOTIFICATION_ID = 2
+        private const val AUTO_TRANSLATE_DELAY_MS = 900L
     }
 }
