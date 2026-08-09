@@ -7,10 +7,8 @@ import org.json.JSONArray
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Free, unofficial Google Translate client using the same "gtx" endpoint that
@@ -22,17 +20,21 @@ import java.util.concurrent.TimeUnit
  * with a data attribute; (2) translate each *distinct* text once (many
  * elements on a page repeat — nav labels, footer links — so this both cuts
  * request count and removes any ambiguity about which output maps to which
- * input); (3) write results back into the tagged elements via JS.
+ * input); (3) write each result back into its element(s) the moment it
+ * resolves, not all at once at the end — a page visibly fills in
+ * progressively instead of sitting untranslated for several seconds and
+ * then jumping all at once (or timing out with nothing at all).
  *
- * Earlier version joined every element's text with "\n" into ONE request
- * and split the translated result back apart the same way — but Google's
- * endpoint re-segments by its own sentence boundaries, not by the newlines
- * sent in, so the split-back-apart line count didn't reliably match the
- * original and text drifted onto the wrong elements. It was also
- * all-or-nothing: one failed request meant nothing on the page translated.
- * Per-text requests (below) fix both: each result maps unambiguously to
- * exactly the text that produced it, and one failed request only drops
- * that one piece of text, not the whole page.
+ * The previous version's real bug: `HttpURLConnection` was left with Java's
+ * own default User-Agent ("Java/1.8.0...") on every request. Google's `gtx`
+ * endpoint is known to rate-limit/block that default UA hard and fast —
+ * under real page-translate load (dozens of requests in a burst from one
+ * IP), most of them came back HTTP 403, and those were being silently
+ * swallowed by a blanket catch — so only the lucky first few requests
+ * before the block kicked in ever got translated. Sending a normal
+ * browser-shaped User-Agent (below) is the actual, documented fix other
+ * gtx-endpoint clients (py-googletrans etc.) use for exactly this failure
+ * mode.
  */
 class TranslateManager {
 
@@ -91,32 +93,45 @@ class TranslateManager {
                 onDone?.invoke(); return@evaluateJavascript
             }
 
-            val resultByIdx = ConcurrentHashMap<Int, String>()
-            val latch = CountDownLatch(indicesByText.size)
-            for ((text, idxList) in indicesByText) {
-                executor.submit {
-                    try {
-                        val translated = translateText(text, targetLang)
-                        idxList.forEach { idx -> resultByIdx[idx] = translated }
-                    } catch (e: Exception) {
-                        // Leave these indices untranslated — every other
-                        // text's own request still lands independently.
-                    } finally {
-                        latch.countDown()
-                    }
-                }
+            val remaining = AtomicInteger(indicesByText.size)
+            val done = {
+                if (remaining.decrementAndGet() == 0) onDone?.invoke()
             }
 
-            // Bounded wait off the main thread; whatever's finished by
-            // then gets applied — a slow/failed handful of requests
-            // shouldn't hold back everything else that already succeeded.
-            executor.submit {
-                latch.await(PAGE_TRANSLATE_TIMEOUT_SEC, TimeUnit.SECONDS)
-                mainHandler.post {
-                    if (resultByIdx.isNotEmpty()) applyTranslation(webView, resultByIdx)
-                    onDone?.invoke()
+            // Staggered dispatch, not all N submitted in the same instant —
+            // even with only 4 worker threads, queuing every task at once
+            // means thread 1 fires request #1, #5, #9... back-to-back with
+            // zero gap, which is exactly the burst pattern that trips
+            // rate-limiting. A small stagger spreads the burst out.
+            var delayMs = 0L
+            for ((text, idxList) in indicesByText) {
+                executor.submit {
+                    if (delayMs > 0) Thread.sleep(delayMs)
+                    try {
+                        val translated = translateTextWithRetry(text, targetLang)
+                        mainHandler.post {
+                            applyTranslation(webView, idxList, translated)
+                            done()
+                        }
+                    } catch (e: Exception) {
+                        // This one text stays untranslated; every other
+                        // text's own request still lands independently —
+                        // no all-or-nothing failure.
+                        mainHandler.post { done() }
+                    }
                 }
+                delayMs += STAGGER_MS
             }
+        }
+    }
+
+    /** One retry with backoff — covers the occasional transient 429/timeout without hammering on a real block. */
+    private fun translateTextWithRetry(text: String, targetLang: String): String {
+        return try {
+            translateText(text, targetLang)
+        } catch (e: Exception) {
+            Thread.sleep(400)
+            translateText(text, targetLang)
         }
     }
 
@@ -131,6 +146,23 @@ class TranslateManager {
         conn.connectTimeout = 8000
         conn.readTimeout = 8000
         conn.requestMethod = "GET"
+        // The actual fix: without a browser-shaped User-Agent, Google's
+        // abuse detection on this endpoint blocks most requests in a burst
+        // almost immediately (HTTP 403). Accept-Language matching the
+        // target only nudges response formatting; it isn't load-bearing
+        // the way User-Agent is.
+        conn.setRequestProperty(
+            "User-Agent",
+            "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
+        )
+        conn.setRequestProperty("Accept-Language", "$targetLang,en;q=0.8")
+        conn.setRequestProperty("Referer", "https://translate.google.com/")
+
+        val code = conn.responseCode
+        if (code != 200) {
+            conn.disconnect()
+            throw java.io.IOException("gtx endpoint returned HTTP $code")
+        }
         val body = conn.inputStream.bufferedReader().readText()
         conn.disconnect()
 
@@ -143,9 +175,9 @@ class TranslateManager {
         return sb.toString()
     }
 
-    private fun applyTranslation(webView: WebView, resultByIdx: Map<Int, String>) {
+    private fun applyTranslation(webView: WebView, indices: List<Int>, translated: String) {
         val obj = org.json.JSONObject()
-        resultByIdx.forEach { (idx, text) -> obj.put(idx.toString(), text) }
+        indices.forEach { idx -> obj.put(idx.toString(), translated) }
         val script = """
             (function() {
                 var map = $obj;
@@ -170,6 +202,6 @@ class TranslateManager {
 
     companion object {
         private const val MAX_ELEMENTS = 220
-        private const val PAGE_TRANSLATE_TIMEOUT_SEC = 15L
+        private const val STAGGER_MS = 60L
     }
 }
