@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/navy_bg">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="12dp">
+        <ImageButton
+            android:id="@+id/settingsBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/toolbar_icon_bg"
+            android:contentDescription="Back"
+            android:padding="9dp"
+            android:src="@drawable/ic_back"
+            android:tint="@color/text_white" />
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:text="Cài đặt"
+            android:textColor="@color/text_white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:overScrollMode="never"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="28dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView style="@style/SettingsSection" android:text="GENERAL" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout android:id="@+id/rowHomepage" style="@style/SettingsRow">
+                    <ImageView style="@style/SettingsIcon" android:src="@drawable/ic_home" android:tint="@color/text_white" />
+                    <LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Trang chủ"/><TextView android:id="@+id/valueHomepage" style="@style/SettingsValue" android:text="IANA Example Domains"/></LinearLayout>
+                    <ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim" />
+                </LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowSearch" style="@style/SettingsRow">
+                    <ImageView style="@style/SettingsIcon" android:src="@drawable/ic_search" android:tint="@color/text_white" />
+                    <LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Công cụ tìm kiếm"/><TextView android:id="@+id/valueSearch" style="@style/SettingsValue" android:text="DuckDuckGo"/></LinearLayout>
+                    <ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="APPEARANCE" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout android:id="@+id/rowTheme" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_theme" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Giao diện"/><TextView android:id="@+id/valueTheme" style="@style/SettingsValue" android:text="Theo hệ thống"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_compact" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Thanh công cụ gọn"/><TextView style="@style/SettingsValue" android:text="Giảm khoảng trống, giữ hitbox lớn"/></LinearLayout><androidx.appcompat.widget.SwitchCompat android:id="@+id/switchCompact" style="@style/SettingsSwitch"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="PRIVACY &amp; SECURITY" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_shield" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Chặn quảng cáo"/><TextView style="@style/SettingsValue" android:text="Lọc request theo danh sách cục bộ"/></LinearLayout><androidx.appcompat.widget.SwitchCompat android:id="@+id/switchAdblock" style="@style/SettingsSwitch"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowClearData" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_delete" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Xóa dữ liệu duyệt web"/><TextView style="@style/SettingsValue" android:text="Cookie, cache và lịch sử"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowApi" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_key" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Control API"/><TextView style="@style/SettingsValue" android:text="127.0.0.1:8848 · Bearer token"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="FINGERPRINT" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout android:id="@+id/rowPersona" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_agent" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Browser persona"/><TextView android:id="@+id/valuePersona" style="@style/SettingsValue" android:text="MoonLite Default"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowLanguage" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_language" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Language / locale"/><TextView style="@style/SettingsValue" android:text="Theo profile hiện tại"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowTimezone" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_globe" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Timezone"/><TextView style="@style/SettingsValue" android:text="Theo profile hiện tại"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="PERFORMANCE" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_speed" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Hardware acceleration"/><TextView style="@style/SettingsValue" android:text="Android WebView mặc định"/></LinearLayout><androidx.appcompat.widget.SwitchCompat android:checked="true" android:enabled="false" style="@style/SettingsSwitch"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_tabs" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Giữ tab nền"/><TextView style="@style/SettingsValue" android:text="Service tiếp tục giữ session"/></LinearLayout><androidx.appcompat.widget.SwitchCompat android:checked="true" android:enabled="false" style="@style/SettingsSwitch"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="TABS" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout android:id="@+id/rowTabAnimation" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_animation" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Tab animation"/><TextView style="@style/SettingsValue" android:text="Fade + scale nhẹ"/></LinearLayout><androidx.appcompat.widget.SwitchCompat android:id="@+id/switchTabAnimation" style="@style/SettingsSwitch"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowNewTab" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_plus" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Tab mới"/><TextView style="@style/SettingsValue" android:text="Mở ngay và focus URL"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="DEVELOPER" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout android:id="@+id/rowDevtools" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_devtools" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="Remote debugging"/><TextView style="@style/SettingsValue" android:text="Chỉ bật trong debug build"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+                <View style="@style/SettingsDivider" />
+                <LinearLayout android:id="@+id/rowToken" style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_key" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="API token"/><TextView style="@style/SettingsValue" android:text="Xem / sao chép token hiện tại"/></LinearLayout><ImageView style="@style/SettingsChevron" android:src="@drawable/ic_chevron" android:tint="@color/text_dim"/></LinearLayout>
+            </LinearLayout>
+
+            <TextView style="@style/SettingsSection" android:text="ABOUT" />
+            <LinearLayout style="@style/SettingsCard">
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_launcher" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="MoonLite Browser"/><TextView style="@style/SettingsValue" android:text="v0.1 · Android WebView control browser"/></LinearLayout></LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>
