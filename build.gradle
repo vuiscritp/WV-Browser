@@ -1,0 +1,26 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // 8.3.2, not 8.1.4: AGP < 8.3.0 has a documented XML-parser
+        // incompatibility with Gradle 8.4+ (Gradle enabled secure XML
+        // parsing by default starting in 8.4, and older AGP trips over
+        // it) — this alone is enough to make every build fail against the
+        // Gradle 8.5 this project's CI pins. 8.3.2 is the fix.
+        classpath 'com.android.tools.build:gradle:8.3.2'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+    }
+}
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}
