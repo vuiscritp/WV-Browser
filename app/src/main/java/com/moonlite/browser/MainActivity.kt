@@ -424,12 +424,12 @@ class MainActivity : AppCompatActivity() {
         }
 
         val plus = ImageButton(this).apply {
-            layoutParams = LinearLayout.LayoutParams(34.dp(), 34.dp).apply { gravity = Gravity.CENTER_VERTICAL }
+            layoutParams = LinearLayout.LayoutParams(dp(34), dp(34)).apply { gravity = Gravity.CENTER_VERTICAL }
             background = getDrawable(R.drawable.toolbar_icon_bg)
             setImageResource(R.drawable.ic_plus)
             imageTintList = ContextCompat.getColorStateList(this@MainActivity, R.color.text_white)
             contentDescription = "New tab"
-            setPadding(9.dp(), 9.dp(), 9.dp(), 9.dp)
+            setPadding(dp(9), dp(9), dp(9), dp(9))
             setOnClickListener { tm.newTab() }
         }
         tabStrip.addView(plus)
@@ -441,5 +441,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun Int.dp(): Int = (this * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
+    private fun Int.dp(): Int = dp(this)
 }
