@@ -1,0 +1,61 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.moonlite.browser'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.moonlite.browser"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "0.1"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    buildFeatures {
+        viewBinding true
+        buildConfig true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation 'androidx.drawerlayout:drawerlayout:1.2.0'
+
+    // Lightweight local HTTP server for the terminal control API
+    implementation 'org.nanohttpd:nanohttpd:2.3.1'
+
+    // JSON handling
+    implementation 'org.json:json:20231013'
+
+    // WebViewFeature/WebSettingsCompat/WebViewCompat/UserAgentMetadata —
+    // needed by FingerprintSync.kt to read/spoof UA client-hints on modern
+    // WebView. Without this on the classpath, every androidx.webkit.* symbol
+    // in that file is an unresolved reference at compile time.
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
