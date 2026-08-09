@@ -71,6 +71,10 @@ import java.util.concurrent.TimeUnit
  *   POST /userscript {"name":..,"match":..,"code":..,"isCss":bool} -> registers a userscript
  *   GET  /userscript                -> lists registered userscripts
  *   POST /translate {"target":..}   -> translates the active tab
+ *   GET  /health                     -> {uptimeMs, tabCount, memory}
+ *   GET  /proxy                      -> current proxy rule (or null)
+ *   POST /proxy {"host":..,"port":..,"scheme":..?} or {"clear":true} -> app-wide proxy override
+ *   GET  /stream?types=console,network -> Server-Sent Events, live console/network entries (max 55s/connection, reconnect after)
  *
  * Honest gaps vs. Playwright: no native PDF export (WebView exposes no
  * public print-to-PDF hook without extra plumbing), no WebRTC IP-leak
@@ -175,6 +179,7 @@ class ControlServer(
                 "/emulate" -> handleEmulate(session)
                 "/proxy" -> handleProxy(session)
                 "/health" -> jsonResponse(Response.Status.OK, handleHealth())
+                "/stream" -> handleStream(session)
                 "/adblock" -> handleAdblock(session)
                 "/tabs" -> jsonResponse(Response.Status.OK, listTabsJson())
                 "/tabs/new" -> handleNewTab(session)
@@ -828,6 +833,100 @@ class ControlServer(
             )
     }
 
+    /**
+     * Server-Sent Events — pushes new `/console` and/or `/network` entries
+     * for the active tab as they happen, instead of the caller polling
+     * those endpoints in a loop. `?types=console,network` filters which
+     * (default: both). Connect with `curl -N` or any `EventSource`/SSE
+     * client; each event is one line `data: {...json...}`.
+     *
+     * Capped at [STREAM_MAX_DURATION_MS] per connection (the response just
+     * ends there, same as any SSE stream closing) rather than running
+     * forever — this is the deciding factor for whether the background
+     * writer thread below is guaranteed to exit even in the case where a
+     * client disconnects without NanoHTTPD's chunked-response machinery
+     * noticing and closing our PipedInputStream for us. A standard
+     * EventSource client reconnects automatically when a stream ends, so
+     * in practice this is invisible — just call it again.
+     */
+    private fun handleStream(session: IHTTPSession): Response {
+        val webView = webViewProvider() ?: return noActiveTab()
+        val tab = tabManager.tabFor(webView) ?: return noActiveTab()
+        val typesParam = session.parameters["types"]?.firstOrNull() ?: "console,network"
+        val wantConsole = typesParam.contains("console")
+        val wantNetwork = typesParam.contains("network")
+
+        val pipeOut = java.io.PipedOutputStream()
+        val pipeIn = java.io.PipedInputStream(pipeOut, 8192)
+        val writer = java.io.PrintWriter(java.io.OutputStreamWriter(pipeOut, Charsets.UTF_8), true)
+
+        val thread = Thread {
+            var lastConsoleSize = 0
+            var lastNetworkSize = 0
+            var lastHeartbeat = System.currentTimeMillis()
+            val deadline = System.currentTimeMillis() + STREAM_MAX_DURATION_MS
+            try {
+                writer.print(": connected\n\n")
+                writer.flush()
+                while (System.currentTimeMillis() < deadline) {
+                    if (wantConsole) {
+                        val snap = tab.consoleSnapshot()
+                        for (i in lastConsoleSize until snap.size) {
+                            val e = snap[i]
+                            val json = JSONObject()
+                                .put("type", "console")
+                                .put("level", e.level)
+                                .put("message", e.message)
+                                .put("source", e.source)
+                                .put("line", e.line)
+                                .put("timestamp", e.timestamp)
+                            writer.print("data: $json\n\n")
+                        }
+                        lastConsoleSize = snap.size
+                    }
+                    if (wantNetwork) {
+                        val snap = tab.networkSnapshot()
+                        for (i in lastNetworkSize until snap.size) {
+                            val e = snap[i]
+                            val json = JSONObject()
+                                .put("type", "network")
+                                .put("method", e.method)
+                                .put("url", e.url)
+                                .put("resourceType", e.resourceType)
+                                .put("blocked", e.blocked)
+                                .put("timestamp", e.timestamp)
+                            writer.print("data: $json\n\n")
+                        }
+                        lastNetworkSize = snap.size
+                    }
+                    writer.flush()
+                    if (writer.checkError()) break // client disconnected — the underlying pipe write failed
+                    if (System.currentTimeMillis() - lastHeartbeat > 15_000L) {
+                        writer.print(": keep-alive\n\n")
+                        writer.flush()
+                        lastHeartbeat = System.currentTimeMillis()
+                    }
+                    Thread.sleep(300)
+                }
+            } catch (e: Exception) {
+                // Client disconnected (broken pipe) or stream torn down — either way, just stop.
+            } finally {
+                try { writer.close() } catch (e: Exception) { }
+                try { pipeOut.close() } catch (e: Exception) { }
+            }
+        }
+        thread.isDaemon = true
+        thread.start()
+
+        val response = newChunkedResponse(Response.Status.OK, "text/event-stream", pipeIn)
+        response.addHeader("Cache-Control", "no-cache")
+        response.addHeader("Connection", "keep-alive")
+        // Common reverse-proxy convention to disable response buffering for
+        // a streamed body — harmless when nothing in the path checks it.
+        response.addHeader("X-Accel-Buffering", "no")
+        return response
+    }
+
     private fun handleAdblock(session: IHTTPSession): Response {
         if (session.method == Method.GET) {
             return jsonResponse(Response.Status.OK, JSONObject().put("enabled", adBlockEnabledProvider()))
@@ -1050,6 +1149,7 @@ class ControlServer(
 
     companion object {
         private const val MAX_REQUEST_BODY_BYTES = 12L * 1024L * 1024L
+        private const val STREAM_MAX_DURATION_MS = 55_000L
         private const val MAX_UPLOAD_BYTES = 8 * 1024 * 1024
         private const val MAX_UPLOAD_BASE64_CHARS = 12 * 1024 * 1024
         private const val MAX_SCREENSHOT_WIDTH = 2048
