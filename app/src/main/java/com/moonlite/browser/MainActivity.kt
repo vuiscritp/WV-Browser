@@ -186,10 +186,10 @@ class MainActivity : AppCompatActivity() {
     private fun applyUiDensity() {
         val compact = AppPrefs.compactUiEnabled(this)
         val tabParams = tabStripScroller.layoutParams
-        tabParams.height = (if (compact) 38 else 44).dp()
+        tabParams.height = dp(if (compact) 38 else 44)
         tabStripScroller.layoutParams = tabParams
         val toolbarParams = toolbarContainer.layoutParams
-        toolbarParams.height = (if (compact) 46 else 52).dp()
+        toolbarParams.height = dp(if (compact) 46 else 52)
         toolbarContainer.layoutParams = toolbarParams
     }
 
@@ -443,5 +443,4 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    private fun Int.dp(): Int = dp(this)
 }
