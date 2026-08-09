@@ -55,7 +55,7 @@ class SettingsActivity : AppCompatActivity() {
         }
         adblock.setOnCheckedChangeListener { _, checked ->
             prefs.putBoolean("adblock_enabled", checked).apply()
-            service?.tabManager()?.activeWebView()?.reload()
+            service?.tabManager?.activeWebView()?.reload()
         }
 
         findViewById<android.view.View>(R.id.rowSearch).setOnClickListener { chooseSearchEngine() }
@@ -69,7 +69,7 @@ class SettingsActivity : AppCompatActivity() {
         findViewById<android.view.View>(R.id.rowToken).setOnClickListener { showToken() }
         findViewById<android.view.View>(R.id.rowDevtools).setOnClickListener { showDevtools() }
         findViewById<android.view.View>(R.id.rowNewTab).setOnClickListener {
-            service?.tabManager()?.newTab()
+            service?.tabManager?.newTab()
             Toast.makeText(this, "Đã mở tab mới", Toast.LENGTH_SHORT).show()
         }
     }
@@ -171,7 +171,7 @@ class SettingsActivity : AppCompatActivity() {
                 cm.removeAllCookies {
                     cm.flush()
                     WebStorage.getInstance().deleteAllData()
-                    service?.tabManager()?.tabsSnapshot()?.forEach { it.webView.clearCache(true) }
+                    service?.tabManager?.tabsSnapshot()?.forEach { it.webView.clearCache(true) }
                     Toast.makeText(this, "Đã xóa dữ liệu WebView", Toast.LENGTH_SHORT).show()
                 }
             }.show()
