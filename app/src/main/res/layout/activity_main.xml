@@ -1,78 +1,124 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/drawerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/navy_bg">
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!--
-      Optional, special permission — granted via a Settings screen, not a
-      runtime dialog. Lets OverlayHost keep background tabs attached to a
-      real (invisible) window even after MainActivity closes, so they keep
-      rendering instead of Chromium treating them as "not visible". Every
-      code path that touches this checks Settings.canDrawOverlays() first
-      and no-ops if it's not granted — the app is fully functional without
-      it, just falls back to the JS-level visibility spoof only.
-    -->
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/navy_bg">
 
-    <application
-        android:allowBackup="false"
-        android:icon="@drawable/ic_launcher"
-        android:label="MoonLite"
-        android:theme="@style/Theme.AppCompat.NoActionBar"
-        android:usesCleartextTraffic="true"
-        android:hardwareAccelerated="true"
-        android:largeHeap="true">
+        <LinearLayout
+            android:id="@+id/tabStripScroller"
+            android:layout_width="match_parent"
+            android:layout_height="34dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@color/navy_dark">
 
-        <activity
-            android:name=".SettingsActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
+            <HorizontalScrollView
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:scrollbars="none"
+                android:overScrollMode="never">
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+                <LinearLayout
+                    android:id="@+id/tabStrip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical" />
+            </HorizontalScrollView>
+        </LinearLayout>
 
-        <!--
-          stopWithTask="false" is the whole point here: without it, Android
-          kills this service the instant the user swipes MoonLite out of
-          Recents, which would also kill the control server and every open
-          tab. With it, the service (and 127.0.0.1:8848) keeps running
-          headless until the OS genuinely needs the memory or the user
-          force-stops the app.
-        -->
-        <service
-            android:name=".MoonliteService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync"
-            android:stopWithTask="false" />
+        <LinearLayout
+            android:id="@+id/toolbarContainer"
+            android:layout_width="match_parent"
+            android:layout_height="46dp"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:background="@color/navy_dark">
 
-        <!--
-          Needed so /upload can hand WebView a real content:// Uri for a
-          file this app already wrote to its own cache dir — WebView's
-          renderer process can't be given a bare file:// path directly
-          (blocked by FileUriExposedException on modern Android), and a
-          FileProvider is the standard, permission-scoped way around that.
-        -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-    </application>
+            <ImageButton
+                android:id="@+id/menuButton"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/toolbar_icon_bg"
+                android:src="@drawable/ic_menu"
+                android:tint="@color/text_white"
+                android:contentDescription="Menu"
+                android:padding="9dp" />
 
-</manifest>
+            <LinearLayout
+                android:id="@+id/addressShell"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginStart="5dp"
+                android:layout_marginEnd="5dp"
+                android:gravity="center_vertical"
+                android:background="@drawable/address_bar_bg"
+                android:paddingStart="12dp"
+                android:paddingEnd="3dp">
+
+                <EditText
+                    android:id="@+id/addressBar"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:singleLine="true"
+                    android:imeOptions="actionGo"
+                    android:inputType="textUri"
+                    android:background="@android:color/transparent"
+                    android:textColor="@color/text_white"
+                    android:textColorHint="@color/text_dim"
+                    android:textSize="13sp"
+                    android:hint="Search or enter address"
+                    android:padding="0dp" />
+
+                <ImageButton
+                    android:id="@+id/refreshButton"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@android:color/transparent"
+                    android:src="@drawable/ic_refresh"
+                    android:tint="@color/text_white"
+                    android:contentDescription="Refresh"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/moreButton"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/toolbar_icon_bg"
+                android:src="@drawable/ic_more"
+                android:tint="@color/text_white"
+                android:contentDescription="More"
+                android:padding="9dp" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/webViewContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@android:color/white" />
+    </LinearLayout>
+
+    <com.google.android.material.navigation.NavigationView
+        android:layout_width="320dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="@color/navy_bg"
+        android:fitsSystemWindows="true"
+        android:paddingTop="0dp">
+        <include layout="@layout/drawer_menu" />
+    </com.google.android.material.navigation.NavigationView>
+</androidx.drawerlayout.widget.DrawerLayout>
