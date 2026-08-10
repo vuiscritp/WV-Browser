@@ -52,7 +52,7 @@
                 android:background="@drawable/toolbar_icon_bg"
                 android:src="@drawable/ic_menu"
                 android:tint="@color/text_white"
-                android:contentDescription="Menu"
+                android:contentDescription="@string/menu"
                 android:padding="9dp" />
 
             <LinearLayout
@@ -79,7 +79,7 @@
                     android:textColor="@color/text_white"
                     android:textColorHint="@color/text_dim"
                     android:textSize="13sp"
-                    android:hint="Search or enter address"
+                    android:hint="@string/search_or_address"
                     android:padding="0dp" />
 
                 <ImageButton
@@ -89,7 +89,7 @@
                     android:background="@android:color/transparent"
                     android:src="@drawable/ic_refresh"
                     android:tint="@color/text_white"
-                    android:contentDescription="Refresh"
+                    android:contentDescription="@string/refresh"
                     android:padding="8dp" />
             </LinearLayout>
 
@@ -100,7 +100,7 @@
                 android:background="@drawable/toolbar_icon_bg"
                 android:src="@drawable/ic_more"
                 android:tint="@color/text_white"
-                android:contentDescription="More"
+                android:contentDescription="@string/more"
                 android:padding="9dp" />
         </LinearLayout>
 
