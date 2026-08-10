@@ -22,7 +22,7 @@
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="MoonLite"
-        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar"
+        android:theme="@style/Theme.AppCompat.NoActionBar"
         android:usesCleartextTraffic="true"
         android:hardwareAccelerated="true"
         android:largeHeap="true">
