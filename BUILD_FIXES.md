@@ -1,4 +1,4 @@
-# MoonLite v13.1 build fixes
+# MoonLite 1.16.2 build fixes
 
 This patch addresses the GitHub Actions `assembleDebug` failure from the v13 UI build.
 
