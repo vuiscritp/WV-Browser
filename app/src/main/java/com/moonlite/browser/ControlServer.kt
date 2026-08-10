@@ -855,6 +855,28 @@ class ControlServer(
      * substitute — one exit IP at a time for the whole app, still useful
      * for e.g. routing everything through a residential/rotating proxy.
      */
+    fun setProxy(host: String, port: Int, scheme: String = "http"): Boolean {
+        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE)) return false
+        if (host.isBlank() || port !in 1..65535) return false
+        val normalizedScheme = scheme.lowercase().let { if (it == "https" || it == "socks5") it else "http" }
+        val controller = androidx.webkit.ProxyController.getInstance()
+        val config = androidx.webkit.ProxyConfig.Builder().addProxyRule("$normalizedScheme://$host:$port").build()
+        val latch = CountDownLatch(1)
+        controller.setProxyOverride(config, { r -> r.run() }, { latch.countDown() })
+        latch.await(3, TimeUnit.SECONDS)
+        currentProxyRule = "$normalizedScheme://$host:$port"
+        return true
+    }
+
+    fun clearProxy(): Boolean {
+        if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE)) return false
+        val latch = CountDownLatch(1)
+        androidx.webkit.ProxyController.getInstance().clearProxyOverride({ r -> r.run() }, { latch.countDown() })
+        latch.await(3, TimeUnit.SECONDS)
+        currentProxyRule = null
+        return true
+    }
+
     private fun handleProxy(session: IHTTPSession): Response {
         if (!androidx.webkit.WebViewFeature.isFeatureSupported(androidx.webkit.WebViewFeature.PROXY_OVERRIDE)) {
             return jsonResponse(Response.Status.OK, errorJson("proxy override not supported on this device's WebView build"))
