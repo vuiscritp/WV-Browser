@@ -288,6 +288,31 @@ NanoHTTPD không phát hiện được để tự đóng stream, thread nền v�
 dừng sau mốc này) — client SSE chuẩn (`EventSource`) tự reconnect khi
 stream đóng, nên trải nghiệm thực tế là liên tục.
 
+**Lưu ý:** `/stream` chỉ đẩy log dạng JSON (console/network), **không có
+hình ảnh gì cả** — 1 trang render đúng nhưng không gọi `console.log` và
+không có request nào khớp filter sẽ trông "trống trơn" qua endpoint này,
+đơn giản vì nó chưa từng mang pixel nào. Muốn xem trực quan trang render
+live (kể cả nội dung do JS dựng), dùng `/stream/screenshot` bên dưới.
+
+## Stream hình ảnh live (MJPEG)
+
+```bash
+curl -N -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/stream/screenshot?width=460&height=980&fps=2" \
+  | ffplay -f mjpeg -i -
+```
+
+Video live thật của tab đang active — chụp lại lặp lại theo đúng cơ chế
+`/screenshot` (tự đo/layout/draw thủ công nên hoạt động cả khi tab đang
+headless). `?fps=` mặc định 2, tối đa 5 — mỗi frame là 1 lần đo+layout+vẽ
+thật trên main thread, cao hơn vài fps sẽ tranh chấp thời gian main thread
+với chính trang đang render, phản tác dụng cho mục đích debug.
+
+**Không mở được trực tiếp bằng thẻ `<img src="...">` trong trình duyệt** —
+app này chủ động không nhận token qua query string (xem mục 2), mà thẻ
+`<img>` không tự set được header `Authorization`. Dùng `curl`/`ffplay` như
+trên, hoặc bất kỳ công cụ nào set được header tuỳ ý.
+
 ## Dịch trang
 
 ```bash
@@ -707,4 +732,56 @@ Three real bugs found and fixed:
 New: `GET /stream` — Server-Sent Events pushing live `/console` and
 `/network` entries for the active tab as they happen, instead of polling
 those endpoints in a loop. See section 6.
+
+## v15: visual live stream
+
+`/stream` (Server-Sent Events) carries console/network log entries only —
+no pixels at all. A page that renders correctly but never logs anything or
+fires matching requests looks totally blank through it, since there was
+never anything visual in that stream to begin with.
+
+New: `GET /stream/screenshot?width=&height=&fps=` — an actual MJPEG video
+feed of the active tab, repeatedly capturing the same way `/screenshot`
+does (works even headless). `curl -N` it into `ffplay -f mjpeg -i -`, or
+anything else that can consume a `multipart/x-mixed-replace` stream and set
+a custom header — a bare `<img src=...>` tag can't authenticate, since this
+app deliberately never accepts the token via query string (section 2).
+
+## v16: overlay-backed background tabs
+
+Chosen over the JS-only fix: a real, persistent overlay window owned by
+the *service* (not the Activity), so background tabs stay genuinely
+attached to a live window — which is what Chromium's own visibility
+tracking actually keys off — even after MainActivity closes entirely, not
+just spoofed at the JS layer.
+
+- New `OverlayHost`: a 1-window, alpha-0, untouchable/unfocusable
+  `TYPE_APPLICATION_OVERLAY` (or `TYPE_PHONE` below API 26) window sized to
+  match the app's own default mobile viewport. Requires the "Display over
+  other apps" special permission (`SYSTEM_ALERT_WINDOW`) — Settings > Tabs
+  > "Giữ tab sống khi đóng app". Every code path checks
+  `Settings.canDrawOverlays()` first and no-ops without it; the app is
+  fully functional without the permission, just falls back to the
+  JS-visibility-spoof-only behavior from before.
+- Fixed a second, related bug found while building this: switching tabs
+  was *also* silently orphaning the previous tab's WebView —
+  `attachActiveTo()` used to just `container.removeAllViews()` and drop
+  whatever was there on the floor, the same underlying problem as the
+  whole "background tab doesn't render" issue, just triggered by a tab
+  switch instead of backgrounding the app. It now parks the outgoing tab
+  in the overlay instead.
+- Every newly created tab is parked in the overlay immediately at
+  creation, so it's attached to a real window from the very start rather
+  than only whenever it first happens to become active or get switched
+  away from.
+- Granting the permission from Settings immediately re-parks whatever
+  tabs are already open (`reparkInactiveTabs()`), instead of only taking
+  effect on the next tab switch/app close.
+
+Honest limit: this makes Android/Chromium consider a parked tab genuinely
+visible/attached, which is what most real-world cases actually key off.
+It can't override Chromium's own internal throttling decisions for a
+window some OEM battery-optimization layer still decides to treat as
+occluded — there's no public API surface for that, and it would need
+real-device testing per OEM to characterize precisely.
 
