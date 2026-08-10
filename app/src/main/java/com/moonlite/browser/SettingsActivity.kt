@@ -155,7 +155,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun showCustomHomepage() {
         val input = EditText(this).apply {
-            singleLine = true
+            isSingleLine = true
             hint = "https://example.com/"
             setText(getSharedPreferences("moonlite", MODE_PRIVATE).getString("homepage", ""))
         }
@@ -185,7 +185,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun showCustomAccent() {
-        val input = EditText(this).apply { singleLine = true; hint = "#60A5FA"; setText("#60A5FA") }
+        val input = EditText(this).apply { isSingleLine = true; hint = "#60A5FA"; setText("#60A5FA") }
         AlertDialog.Builder(this).setTitle("Custom accent").setMessage("Enter a hex color, for example #60A5FA.").setView(input)
             .setNegativeButton("Cancel", null).setPositiveButton("Apply") { _, _ ->
                 val value = input.text.toString().trim()
