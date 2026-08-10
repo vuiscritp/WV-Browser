@@ -72,6 +72,35 @@ class SettingsActivity : AppCompatActivity() {
             service?.tabManager?.newTab()
             Toast.makeText(this, "Đã mở tab mới", Toast.LENGTH_SHORT).show()
         }
+        findViewById<android.view.View>(R.id.rowOverlay).setOnClickListener { requestOverlayPermission() }
+    }
+
+    private val overlayPermissionLauncher =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
+            // The overlay permission has no direct "granted/denied" result
+            // extra — it's a Settings screen, not a permission dialog — so
+            // this just re-checks the actual state once the user is back.
+            refreshOverlayRow()
+            service?.reparkInactiveTabs()
+        }
+
+    private fun requestOverlayPermission() {
+        val host = service?.overlayHost
+        if (host == null || host.isPermissionGranted()) {
+            Toast.makeText(this, "Đã cấp quyền — tab nền sẽ tiếp tục render khi đóng app", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val intent = Intent(
+            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+            android.net.Uri.parse("package:$packageName")
+        )
+        overlayPermissionLauncher.launch(intent)
+    }
+
+    private fun refreshOverlayRow() {
+        val granted = service?.overlayHost?.isPermissionGranted() ?: false
+        findViewById<android.widget.TextView>(R.id.valueOverlay).text =
+            if (granted) "Đã cấp quyền" else "Chưa cấp quyền — bấm để bật"
     }
 
     override fun onStart() {
@@ -94,6 +123,7 @@ class SettingsActivity : AppCompatActivity() {
         val persona = UaPresets.byId(svc.currentUaPresetId).label
         findViewById<android.widget.TextView>(R.id.valuePersona).text = persona
         findViewById<android.widget.TextView>(R.id.valueSearch).text = SearchEngines.current().label
+        refreshOverlayRow()
     }
 
     private fun chooseSearchEngine() {
