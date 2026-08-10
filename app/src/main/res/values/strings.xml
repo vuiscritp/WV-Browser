@@ -1,3 +1,29 @@
 <resources>
     <string name="app_name">MoonLite</string>
+    <string name="menu">Menu</string><string name="refresh">Refresh</string><string name="more">More</string><string name="new_tab">New tab</string>
+    <string name="search_or_address">Search or enter address</string><string name="close_tab">Close tab</string>
+    <string name="local_browser_control">Local browser control</string><string name="api_copy">API token · tap to copy</string><string name="settings">Settings</string>
+    <string name="browser">BROWSER</string><string name="desktop_mode">Desktop mode: OFF</string><string name="user_agent">User-Agent…</string><string name="search_engine">Search engine</string>
+    <string name="language">LANGUAGE</string><string name="translate_page">Translate this page</string><string name="auto_translate_off">Auto-translate: OFF</string>
+    <string name="security_performance">SECURITY &amp; PERFORMANCE</string><string name="adblock_off">Ad blocking: OFF</string><string name="devtools">DevTools (remote debug)</string>
+    <string name="appearance">APPEARANCE</string><string name="theme">Theme</string><string name="theme_system">Midnight</string><string name="compact_toolbar">Compact toolbar</string><string name="compact_toolbar_desc">Less spacing, full-size hit targets</string>
+    <string name="privacy_security">PRIVACY &amp; SECURITY</string><string name="adblock">Ad blocking</string><string name="adblock_desc">Filter requests with the local blocklist</string><string name="clear_data">Clear browsing data</string><string name="clear_data_desc">Cookies, cache and Web Storage</string><string name="network_proxy">Network proxy</string><string name="network_proxy_desc">App-wide HTTP / HTTPS / SOCKS5 proxy</string><string name="control_api">Control API</string><string name="control_api_desc">127.0.0.1:8848 · Bearer token</string>
+    <string name="fingerprint">BROWSER PROFILE</string><string name="browser_persona">Browser persona</string><string name="browser_language">Browser language / locale</string><string name="timezone">Timezone</string>
+    <string name="performance">PERFORMANCE</string><string name="hardware_acceleration">Hardware acceleration</string><string name="hardware_acceleration_desc">Android WebView default</string><string name="keep_background_tabs">Keep background tabs alive</string><string name="keep_background_tabs_desc">Foreground service keeps the session</string>
+    <string name="tabs">TABS &amp; AUTOMATION</string><string name="tab_animation">Tab animation</string><string name="tab_animation_desc">Subtle fade + scale</string><string name="new_tab_desc">Open and focus the URL bar</string><string name="keep_tab_alive_title">Keep tabs alive after closing</string><string name="background_automation">Background automation</string><string name="background_automation_desc">Keep service alive; battery + overlay permissions</string><string name="overlay_not_granted">Not granted · tap to enable</string><string name="overlay_granted">Granted</string>
+    <string name="developer">DEVELOPER</string><string name="remote_debugging">Remote debugging</string><string name="remote_debugging_desc">Enabled only in debug builds</string><string name="api_token">API token</string><string name="api_token_desc">View / copy current token</string>
+    <string name="about">ABOUT</string><string name="moonlite_browser">MoonLite Browser</string><string name="version_desc">1.17.1 · Android WebView automation browser</string>
+    <string name="interface_language">Interface language</string><string name="interface_language_desc">English by default; restart the screen after changing</string>
+    <string name="homepage">Homepage</string><string name="homepage_desc">Choose a search homepage or add your own URL</string><string name="search_engine_desc">Default search provider</string><string name="theme_desc">Material-style UI palette</string>
+
+    <string name="service_starting">Starting…</string>
+    <string name="background_status">API: 127.0.0.1:8848 • %1$d tabs open</string>
+    <string name="tab_init_error">Tab initialization failed: %1$s</string>
+    <string name="server_start_error">Server startup failed: %1$s</string>
+    <string name="challenge_manual_title">Manual challenge required</string>
+    <string name="challenge_detected">A tab is waiting on a Cloudflare/CAPTCHA challenge.</string>
+    <string name="challenge_channel_name">MoonLite challenge</string>
+    <string name="challenge_channel_desc">Alerts when a Cloudflare/CAPTCHA challenge needs manual action</string>
+    <string name="background_channel_name">MoonLite background</string>
+    <string name="background_channel_desc">Keeps the browser and control server running in the background</string>
 </resources>
