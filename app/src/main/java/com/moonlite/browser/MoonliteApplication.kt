@@ -22,6 +22,7 @@ import java.util.Locale
 class MoonliteApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        UiLanguage.ensureDefault()
         StartupLog.init(this)
         StartupLog.mark("APPLICATION:onCreate")
     }
