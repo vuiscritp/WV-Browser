@@ -19,6 +19,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
+        android:name=".MoonliteApplication"
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
         android:label="MoonLite"
