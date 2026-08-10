@@ -70,7 +70,7 @@ class MoonliteService : Service() {
             android.webkit.WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
             StartupLog.mark("SERVICE:webview_debugging:ok")
 
-            val startupNotification = buildNotification("Đang khởi động…")
+            val startupNotification = buildNotification(getString(R.string.service_starting))
             StartupLog.mark("SERVICE:notification_built:ok")
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -145,7 +145,7 @@ class MoonliteService : Service() {
                 }.onFailure {
                     StartupLog.crashPoint("SERVICE:first_tab", it)
                     android.util.Log.e("MoonLite", "Failed to create initial tab", it)
-                    updateNotification("Lỗi khởi tạo tab: ${it.message}")
+                    updateNotification(getString(R.string.tab_init_error, it.message ?: ""))
                 }
             }
 
@@ -176,6 +176,11 @@ class MoonliteService : Service() {
         currentUaPresetId = id
         tabManager.applyUaToAllTabs()
     }
+
+    fun setProxy(host: String, port: Int, scheme: String = "http"): Boolean =
+        controlServer?.setProxy(host, port, scheme) ?: false
+
+    fun clearProxy(): Boolean = controlServer?.clearProxy() ?: false
 
     fun addUiListener(listener: () -> Unit) {
         uiListeners.add(listener)
@@ -208,13 +213,13 @@ class MoonliteService : Service() {
         try {
             controlServer?.start()
         } catch (e: Exception) {
-            updateNotification("Lỗi khởi động server: ${e.message}")
+            updateNotification(getString(R.string.server_start_error, e.message ?: ""))
         }
     }
 
     private fun updateNotification(extra: String? = null) {
         val tabCount = if (::tabManager.isInitialized) tabManager.tabCount() else 0
-        val text = extra ?: "API: 127.0.0.1:8848 • $tabCount tab đang mở"
+        val text = extra ?: getString(R.string.background_status, tabCount)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, buildNotification(text))
     }
@@ -235,8 +240,8 @@ class MoonliteService : Service() {
             PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
         val notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Cần giải challenge thủ công")
-            .setContentText(if (url.isBlank()) "Một tab đang gặp Cloudflare/CAPTCHA." else url)
+            .setContentTitle(getString(R.string.challenge_manual_title))
+            .setContentText(if (url.isBlank()) getString(R.string.challenge_detected) else url)
             .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
@@ -252,9 +257,9 @@ class MoonliteService : Service() {
             if (manager.getNotificationChannel(CHALLENGE_CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
                     CHALLENGE_CHANNEL_ID,
-                    "MoonLite challenge",
+                    getString(R.string.challenge_channel_name),
                     NotificationManager.IMPORTANCE_HIGH
-                ).apply { description = "Báo khi gặp Cloudflare/CAPTCHA cần giải tay" }
+                ).apply { description = getString(R.string.challenge_channel_desc) }
                 manager.createNotificationChannel(channel)
             }
         }
@@ -283,9 +288,9 @@ class MoonliteService : Service() {
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
-                    "MoonLite nền",
+                    getString(R.string.background_channel_name),
                     NotificationManager.IMPORTANCE_LOW
-                ).apply { description = "Giữ trình duyệt và control server chạy khi ở nền" }
+                ).apply { description = getString(R.string.background_channel_desc) }
                 manager.createNotificationChannel(channel)
             }
         }
