@@ -11,8 +11,8 @@ android {
         applicationId "com.moonlite.browser"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "0.1"
+        versionCode 11602
+        versionName "1.16.2"
     }
 
     buildTypes {
