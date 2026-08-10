@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.os.Binder
 import android.os.Build
@@ -57,6 +58,8 @@ class MoonliteService : Service() {
         private set
 
     override fun onCreate() {
+        super.onCreate()
+
         // Must run before any WebView is constructed anywhere in the
         // process (the very first tab is created a few lines below via
         // tabManager.newTab). Without it, WebView splits long pages into
@@ -66,10 +69,17 @@ class MoonliteService : Service() {
         // headless scraping that reads the whole DOM) can have stale or
         // blank regions outside the visible viewport. This trades a little
         // extra drawing cost for the whole document always being current.
-        android.webkit.WebView.enableSlowWholeDocumentDraw()
-        super.onCreate()
+        runCatching { android.webkit.WebView.enableSlowWholeDocumentDraw() }
+            .onFailure { android.util.Log.w("MoonLite", "enableSlowWholeDocumentDraw failed", it) }
         android.webkit.WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-        startForeground(NOTIFICATION_ID, buildNotification("Đang khởi động…"))
+
+        val startupNotification = buildNotification("Đang khởi động…")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID, startupNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            @Suppress("DEPRECATION")
+            startForeground(NOTIFICATION_ID, startupNotification)
+        }
 
         if (AppPrefs.desktopModeEnabled(this)) currentUaPresetId = "chrome_desktop"
         SearchEngines.currentId = AppPrefs.searchEngineId(this)
@@ -106,7 +116,23 @@ class MoonliteService : Service() {
             },
             overlayHost = overlayHost
         )
-        tabManager.newTab(SearchEngines.homepage(this))
+        // Do not construct the first WebView synchronously inside Service.onCreate().
+        // WebView initialization can block the main thread while Chromium starts
+        // (especially on OEM/old WebView providers). Posting the first tab lets
+        // MainActivity finish its own startup and bind to the service before the
+        // expensive WebView/Chromium work begins. Functionality is unchanged: the
+        // same first tab and homepage are created immediately after startup.
+        android.os.Handler(mainLooper).post {
+            if (!::tabManager.isInitialized) return@post
+            runCatching {
+                if (tabManager.tabCount() == 0) {
+                    tabManager.newTab(SearchEngines.homepage(this))
+                }
+            }.onFailure {
+                android.util.Log.e("MoonLite", "Failed to create initial tab", it)
+                updateNotification("Lỗi khởi tạo tab: ${it.message}")
+            }
+        }
 
         startControlServer()
     }
