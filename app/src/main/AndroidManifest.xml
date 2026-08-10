@@ -7,6 +7,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!--
+      Optional, special permission — granted via a Settings screen, not a
+      runtime dialog. Lets OverlayHost keep background tabs attached to a
+      real (invisible) window even after MainActivity closes, so they keep
+      rendering instead of Chromium treating them as "not visible". Every
+      code path that touches this checks Settings.canDrawOverlays() first
+      and no-ops if it's not granted — the app is fully functional without
+      it, just falls back to the JS-level visibility spoof only.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="false"
