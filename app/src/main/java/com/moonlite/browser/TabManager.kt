@@ -591,10 +591,10 @@ class TabManager(
         val html = """
             <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
             <style>
-                body { background:#12122E; color:#FFFFFF; font-family:sans-serif; padding:32px 24px; text-align:center; }
+                body { background:#000000; color:#FFFFFF; font-family:sans-serif; padding:32px 24px; text-align:center; }
                 h2 { color:#FFFFFF; margin-bottom:8px; }
                 p { color:#AEB0D8; font-size:14px; line-height:1.5; }
-                a { display:inline-block; margin-top:20px; background:#4C5FD5; color:#FFFFFF;
+                a { display:inline-block; margin-top:20px; background:#FFFFFF; color:#FFFFFF;
                     padding:12px 28px; border-radius:24px; text-decoration:none; font-weight:bold; }
             </style></head>
             <body>
