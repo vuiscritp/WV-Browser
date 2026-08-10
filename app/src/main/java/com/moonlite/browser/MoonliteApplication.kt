@@ -21,13 +21,10 @@ import java.util.Locale
  */
 class MoonliteApplication : Application() {
     override fun onCreate() {
-        super.onCreate()
-        UiLanguage.ensureDefault()
-        StartupLog.init(this)
-        StartupLog.mark("APPLICATION:onCreate")
+    super.onCreate()
+    UiLanguage.ensureDefault()
     }
-}
-
+    
 object StartupLog {
     private const val TAG = "MoonLiteStartup"
     private const val FILE_NAME = "MoonLite_startup_crash.log"
