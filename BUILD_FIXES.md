@@ -1,21 +1,17 @@
-# MoonLite 1.16.2 build fixes
-
-This patch addresses the GitHub Actions `assembleDebug` failure from the v13 UI build.
+# MoonLite 1.16.2 — build fixes
 
 ## Fixed
+- Restored `app/src/main/res/layout/activity_main.xml`, which had accidentally contained the AndroidManifest XML.
+- Restored all MainActivity view IDs used by `MainActivity.kt`:
+  `drawerLayout`, `tabStrip`, `tabStripScroller`, `toolbarContainer`,
+  `addressShell`, `addressBar`, `refreshButton`, `menuButton`,
+  `moreButton`, and `webViewContainer`.
+- Kept the compact black Chrome-style UI.
+- Verified all XML resource files parse successfully.
+- Scanned MainActivity `R.id.*` references against the layout resources; no unresolved view IDs remain.
+- Verified `versionName=1.16.2` and `versionCode=11602`.
 
-- `MainActivity.kt`: avoid Kotlin receiver ambiguity around the member `Int.dp()` extension inside `ImageButton.apply {}` by using an explicit `dp(value)` helper for the new-tab button dimensions and padding.
-- `SettingsActivity.kt`: `MoonliteService.tabManager` is a property, not a function. Replaced `service?.tabManager()` with `service?.tabManager` for reload/new-tab/cache operations.
+## Build environment limitation
+This source tree does not contain `gradle/wrapper/gradle-wrapper.jar`, so a local Gradle compile cannot be executed in this environment. The wrapper stops before Gradle starts with `GradleWrapperMain` missing.
 
-## Build environment from the supplied CI log
-
-- JDK 17
-- Gradle 8.5
-- Android Gradle Plugin 8.3.2
-- `gradle assembleDebug --no-daemon`
-
-The supplied failure was during `:app:compileDebugKotlin`; Gradle setup, Android resources, manifest processing, and dependency resolution completed successfully.
-
-## Note
-
-This environment does not contain a Gradle distribution/Android SDK, so a local `assembleDebug` cannot be executed here. GitHub Actions remains the final compile verification.
+The source-level XML/Kotlin reference scan was performed after the fix.
