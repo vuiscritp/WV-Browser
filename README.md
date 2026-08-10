@@ -1,415 +1,119 @@
-# MoonLite Browser
+🌙 MoonLite Browser
 
-MoonLite là trình duyệt Android nhẹ dựa trên **WebView/Chromium của hệ thống**, được thiết kế để chạy lâu ở background và điều khiển trực tiếp từ **terminal trên điện thoại** hoặc từ **PC qua ADB**.
+<p align="center">
+  <img src="app/src/main/res/drawable/ic_launcher.png" width="128" alt="MoonLite Browser">
+</p><p align="center">
+  <strong>A lightweight, controllable Android WebView browser.</strong><br>
+  Automate, inspect and control Android WebView directly from a terminal or PC.
+</p><p align="center">"Version" (https://img.shields.io/badge/version-1.17.1-blue.svg)
+"Android" (https://img.shields.io/badge/Android-7.0%2B-green.svg)
+"minSdk" (https://img.shields.io/badge/minSdk-24-orange.svg)
+"WebView" (https://img.shields.io/badge/engine-Android%20WebView%2FChromium-purple.svg)
+"API" (https://img.shields.io/badge/API-HTTP%20%2B%20JSON-lightgrey.svg)
 
-Mục tiêu của project không phải clone Playwright 1:1 mà là cung cấp một lớp điều khiển HTTP nhỏ, ổn định và thực dụng trên Android:
+</p>---
 
-- nhiều tab, chạy headless khi Activity không mở;
-- `navigate`, `search`, `click`, `fill`, `hover`, `select`, `key`, `scroll`;
-- JavaScript evaluation (`/eval`);
-- scrape HTML/text/elements;
-- screenshot PNG;
-- upload file vào `<input type=file>`;
-- cookie/session import/export;
-- UA + Client Hints + `navigator.userAgentData`;
-- locale/timezone/hardware/geolocation emulation;
-- userscript/CSS injection;
-- adblock nhỏ built-in;
-- translation không cần API key;
-- proxy toàn app qua AndroidX WebKit ProxyController;
-- remote DevTools trong **debug build**;
-- local control server trên `127.0.0.1:8848`.
+📖 Overview
 
-## Điểm quan trọng của bản này
+MoonLite Browser is a lightweight Android browser built on the system's Android WebView / Chromium engine.
 
-Bản này đã sửa các lỗi nguy hiểm có thể làm mất session, làm rò quyền điều khiển browser hoặc gây OOM/crash:
+Unlike a conventional mobile browser, MoonLite is designed to expose browser functionality through a small local HTTP control API.
 
-1. **Control API có Bearer token ngẫu nhiên theo từng installation.** Loopback không còn được coi là ranh giới bảo mật.
-2. **Incognito không còn tự xóa cookie theo host khi đóng tab.** Android WebView dùng cookie store chung trong process; xóa theo host có thể logout tab thường.
-3. **Document-start fingerprint scripts được quản lý bằng `ScriptHandler` và remove trước khi thay persona.** UA cũ không còn tích lũy với UA mới.
-4. **Emulation được đăng ký ở document-start** và vẫn được áp ngay vào document hiện tại.
-5. **Timezone spoof tính offset theo từng `Date`, có tính DST**, thay vì đóng băng offset của thời điểm hiện tại.
-6. **Lifecycle tab/WebView được serialize tốt hơn**, và việc đóng tab chờ per-WebView lock trước khi `destroy()`.
-7. **Screenshot có giới hạn kích thước/pixel** để tránh tạo bitmap khổng lồ.
-8. **Upload có giới hạn body/base64/decoded bytes** trước khi ghi file.
-9. **`/emulate` validate locale, timezone, tọa độ, accuracy, CPU và memory.**
-10. **`/useragent` thực sự đổi preset**, đồng thời reject preset không tồn tại.
-11. **Remote WebView debugging chỉ bật mặc định ở debug build**, thay vì luôn bật ở release.
-12. **Android backup bị tắt** để secret API token không nằm trong dữ liệu backup của app.
+This makes it possible to control a browser running on Android from:
 
-> Lưu ý: `/eval`, `/cookies`, `/upload`, `/navigate` và `/proxy` là các quyền rất mạnh. Token chỉ bảo vệ control API; nó không biến browser thành sandbox an toàn trước chính người sở hữu token.
+- Android Terminal
+- "curl"
+- Python
+- PC via ADB
+- automation scripts
+- custom clients
 
----
+MoonLite is not intended to be a 1:1 Playwright replacement.
 
-# 1. Mô hình điều khiển
+Instead, it provides a practical Android-native browser automation layer with:
 
-```text
-┌──────────────────────┐
-│ Terminal trên Android│
-│ curl / Python / C    │
-└──────────┬───────────┘
-           │ HTTP + Bearer token
-           ▼
-┌────────────────────────────┐
-│ 127.0.0.1:8848             │
-│ MoonLite ControlServer     │
-└──────────┬─────────────────┘
-           │
-           ▼
-┌────────────────────────────┐
-│ MoonliteService             │
-│ TabManager + WebView/Chromium│
-└────────────────────────────┘
-
-PC:
-PC curl/python → adb forward tcp:8848 tcp:8848 → Android 127.0.0.1:8848
-```
-
-Server **chỉ bind `127.0.0.1`**. PC truy cập thông qua ADB forwarding, không mở port HTTP ra Wi-Fi/LAN.
-
-## Vì sao vẫn cần token khi bind localhost?
-
-Một process khác trên Android cũng có thể mở kết nối tới `127.0.0.1`. Ngoài ra:
-
-```bash
-adb forward tcp:8848 tcp:8848
-```
-
-làm control socket xuất hiện ở phía PC đã được ADB authorize. Vì API có quyền đọc cookie, chạy JavaScript và điều khiển navigation, loopback một mình không đủ để bảo vệ API.
+- multiple tabs;
+- navigation;
+- DOM interaction;
+- JavaScript execution;
+- HTML/text extraction;
+- screenshots;
+- file uploads;
+- cookies and session management;
+- User-Agent and fingerprint emulation;
+- timezone/locale/device emulation;
+- userscripts;
+- CSS injection;
+- built-in ad blocking;
+- translation;
+- application-wide proxy configuration;
+- live console/network streams;
+- live MJPEG screenshots;
+- remote DevTools in debug builds.
 
 ---
 
-# 2. Lấy API token
+✨ Features
 
-Token được tạo bằng `SecureRandom`, dài 32 byte và lưu trong private app storage qua `SharedPreferences`.
+🌐 Browser
 
-### Trên điện thoại
+- Android WebView / Chromium based
+- Multiple tabs
+- Background/headless tab operation
+- Navigation
+- Back / Forward / Reload
+- Search
+- DOM interaction
+- JavaScript execution
+- Screenshot capture
+- HTML extraction
+- Text scraping
+- Element queries
+- File upload
+- Cookie import/export
 
-Mở MoonLite → drawer/menu → **API token** → **Sao chép**.
+🤖 Automation
 
-Không ghi token vào URL/query string. Luôn gửi bằng header:
+Supported operations include:
 
-```http
-Authorization: Bearer YOUR_TOKEN
-```
+navigate
+search
+click
+fill
+hover
+select
+key
+scroll
+wait_for_selector
+eval
 
-### Debug build + ADB
+Example:
 
-Nếu đang dùng debug build, có thể đọc token từ private storage bằng:
-
-```bash
-adb shell run-as com.moonlite.browser cat shared_prefs/moonlite.xml
-```
-
-Không nên đưa file prefs hoặc token lên Git.
-
----
-
-# 3. Build
-
-## GitHub Actions
-
-Workflow `.github/workflows/build.yml` tự cài Gradle + Android SDK và build APK.
-
-Sau khi push repository:
-
-1. mở **Actions**;
-2. chọn workflow build;
-3. chờ job hoàn thành;
-4. tải artifact `moonlite-debug-apk`.
-
-## Local
-
-Nếu repository có đầy đủ Gradle wrapper:
-
-```bash
-./gradlew assembleDebug
-```
-
-Nếu source archive thiếu `gradle/wrapper/gradle-wrapper.jar`, chạy từ máy đã cài Gradle:
-
-```bash
-gradle wrapper --gradle-version 8.5
-./gradlew assembleDebug
-```
-
-Project hiện dùng:
-
-- Android Gradle Plugin `8.3.2`
-- Gradle `8.5`
-- Kotlin `1.9.22`
-- compileSdk `34`
-- minSdk `24`
-- AndroidX WebKit `1.11.0`
+{
+  "selector": "input[name=q]",
+  "text": "MoonLite Browser"
+}
 
 ---
 
-# 4. Cài trên Android + kết nối PC
+🧩 Browser Emulation
+
+MoonLite can modify several browser-visible properties:
+
+- User-Agent
+- Client Hints
+- "navigator.userAgentData"
+- "navigator.platform"
+- locale
+- timezone
+- screen dimensions
+- device pixel ratio
+- hardware concurrency
+- device memory
+- geolocation
+
+Built-in User-Agent presets include:
 
-```bash
-adb install app-debug.apk
-adb shell am start -n com.moonlite.browser/.MainActivity
-adb forward tcp:8848 tcp:8848
-```
-
-Kiểm tra server:
-
-```bash
-curl http://127.0.0.1:8848/status
-```
-
-Kết quả không chứa token:
-
-```json
-{"status":"ok","auth":"bearer"}
-```
-
-Test endpoint có bảo vệ:
-
-```bash
-curl -i http://127.0.0.1:8848/tabs
-```
-
-Sẽ nhận `401 Unauthorized` nếu thiếu token.
-
-Sau khi lấy token:
-
-```bash
-export MOONLITE_TOKEN='YOUR_TOKEN'
-export BASE='http://127.0.0.1:8848'
-
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" "$BASE/tabs"
-```
-
----
-
-# 5. Python
-
-```python
-import requests
-
-BASE = "http://127.0.0.1:8848"
-TOKEN = "YOUR_TOKEN"
-HEADERS = {"Authorization": f"Bearer {TOKEN}"}
-
-r = requests.post(
-    f"{BASE}/navigate",
-    headers=HEADERS,
-    json={"url": "https://example.com"},
-    timeout=15,
-)
-print(r.json())
-```
-
-Khuyến nghị luôn dùng `timeout` ở client vì navigation/scraping có thể mất vài giây.
-
----
-
-# 6. Endpoint API
-
-Tất cả endpoint dưới đây, ngoại trừ `/status`, yêu cầu:
-
-```http
-Authorization: Bearer YOUR_TOKEN
-```
-
-Request JSON dùng `Content-Type: application/json`.
-
-## Status
-
-| Endpoint | Method | Ghi chú |
-|---|---|---|
-| `/status` | GET | public, không trả secret |
-| `/health` | GET | uptime, số tab, memory |
-| `/stream?types=` | GET | Server-Sent Events, xem mục riêng bên dưới |
-
-## Navigation
-
-| Endpoint | Method | Body |
-|---|---|---|
-| `/navigate` | POST | `{"url":"https://..."}` |
-| `/search` | POST | `{"query":"hello"}` |
-| `/back` | POST | — |
-| `/forward` | POST | — |
-| `/reload` | POST | — |
-
-Navigation đợi `onPageFinished` hoặc timeout, sau đó best-effort chờ DOM ổn định. Đây không phải `networkidle` thật của Playwright vì WebView không expose API public cho trạng thái toàn bộ request đang bay.
-
-## Đọc trang
-
-| Endpoint | Method | Ghi chú |
-|---|---|---|
-| `/scrape` | GET | URL, title, text, links |
-| `/html` | GET | outer HTML, có giới hạn kích thước |
-| `/exists?selector=` | GET | kiểm tra selector |
-| `/attribute?selector=&name=` | GET | đọc property/attribute |
-| `/elements?selector=&limit=` | GET | nhiều phần tử một lần |
-| `/console` | GET | console/alert/confirm/prompt log |
-| `/network` | GET | network log gần nhất |
-
-## Tương tác
-
-| Endpoint | Method | Body |
-|---|---|---|
-| `/click` | POST | `{"selector":"button","timeout":5000}` |
-| `/fill` | POST | `{"selector":"input","text":"hello"}` |
-| `/hover` | POST | `{"selector":"#menu"}` |
-| `/select` | POST | `{"selector":"select","value":"vn"}` |
-| `/key` | POST | `{"key":"Enter","selector":"input"}` |
-| `/scroll` | POST | `{"x":0,"y":800}` hoặc selector |
-| `/wait_for_selector` | POST | `{"selector":"...","timeout":5000}` |
-| `/eval` | POST | `{"script":"document.title"}` |
-
-Ví dụ:
-
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/eval" \
-  -d '{"script":"document.title"}'
-```
-
-`/eval` là endpoint mạnh nhất. JavaScript chạy trong page context của tab active.
-
-## Stream (Server-Sent Events)
-
-```bash
-curl -N -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  "$BASE/stream?types=console,network"
-```
-
-Đẩy live các entry mới của `/console`/`/network` cho tab active ngay khi
-chúng xảy ra — dùng để theo dõi automation real-time thay vì polling
-`/console`/`/network` liên tục. `?types=` lọc loại (`console`, `network`,
-mặc định cả hai). Mỗi event là 1 dòng `data: {...json...}`.
-
-Mỗi kết nối tự đóng sau tối đa 55 giây (an toàn: nếu client rớt mạng mà
-NanoHTTPD không phát hiện được để tự đóng stream, thread nền vẫn chắc chắn
-dừng sau mốc này) — client SSE chuẩn (`EventSource`) tự reconnect khi
-stream đóng, nên trải nghiệm thực tế là liên tục.
-
-**Lưu ý:** `/stream` chỉ đẩy log dạng JSON (console/network), **không có
-hình ảnh gì cả** — 1 trang render đúng nhưng không gọi `console.log` và
-không có request nào khớp filter sẽ trông "trống trơn" qua endpoint này,
-đơn giản vì nó chưa từng mang pixel nào. Muốn xem trực quan trang render
-live (kể cả nội dung do JS dựng), dùng `/stream/screenshot` bên dưới.
-
-## Stream hình ảnh live (MJPEG)
-
-```bash
-curl -N -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  "$BASE/stream/screenshot?width=460&height=980&fps=2" \
-  | ffplay -f mjpeg -i -
-```
-
-Video live thật của tab đang active — chụp lại lặp lại theo đúng cơ chế
-`/screenshot` (tự đo/layout/draw thủ công nên hoạt động cả khi tab đang
-headless). `?fps=` mặc định 2, tối đa 5 — mỗi frame là 1 lần đo+layout+vẽ
-thật trên main thread, cao hơn vài fps sẽ tranh chấp thời gian main thread
-với chính trang đang render, phản tác dụng cho mục đích debug.
-
-**Không mở được trực tiếp bằng thẻ `<img src="...">` trong trình duyệt** —
-app này chủ động không nhận token qua query string (xem mục 2), mà thẻ
-`<img>` không tự set được header `Authorization`. Dùng `curl`/`ffplay` như
-trên, hoặc bất kỳ công cụ nào set được header tuỳ ý.
-
-## Dịch trang
-
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/translate" \
-  -d '{"target":"vi"}'
-```
-
-Dùng endpoint không chính thức của Google Translate (`translate_a/single`,
-không cần API key, không đảm bảo ổn định lâu dài vì có thể bị Google đổi/
-chặn bất kỳ lúc nào). Mỗi đoạn text khác nhau trên trang chỉ dịch 1 lần dù
-lặp lại bao nhiêu lần (menu, footer...), áp kết quả vào DOM ngay khi từng
-đoạn dịch xong (không chờ hết cả trang), và 1 đoạn lỗi chỉ mất đúng đoạn đó
-— không hỏng cả trang.
-
-## Upload
-
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/upload" \
-  -d "{\
-    \"selector\":\"input[type=file]\",\
-    \"filename\":\"avatar.png\",\
-    \"mime\":\"image/png\",\
-    \"content_base64\":\"$(base64 -w0 avatar.png)\"\
-  }"
-```
-
-Giới hạn hiện tại:
-
-- request body: `12 MiB`;
-- decoded upload: `8 MiB`;
-- base64 upload field: `12 MiB`.
-
-## Screenshot
-
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  "$BASE/screenshot?width=460&height=980"
-```
-
-Giới hạn:
-
-- width tối đa `2048`;
-- height tối đa `4096`;
-- tối đa `8,000,000` pixel.
-
-Giới hạn này ngăn request kiểu `10000x10000` tạo bitmap hàng trăm MB và làm app OOM.
-
----
-
-# 7. Cookie / session
-
-| Endpoint | Method |
-|---|---|
-| `/cookies?url=` | GET |
-| `/cookies` | POST `{"url":"...","cookies":"a=1; b=2"}` |
-| `/cookies/all?url=` | GET |
-| `/cookies/import` | POST `{"cookies":[...]}` |
-
-Các endpoint cookie cần token vì chúng có thể chứa session đăng nhập.
-
----
-
-# 8. Incognito: giới hạn thực tế của Android WebView
-
-`/tabs/new` hỗ trợ:
-
-```json
-{"url":"https://example.com","incognito":true}
-```
-
-Nhưng **không được coi `incognito=true` là profile/cookie isolation hoàn chỉnh**.
-
-`android.webkit.CookieManager` và nhiều storage thành phần WebView dùng chung trong process. Vì vậy bản này **không còn xóa cookie theo host khi đóng incognito**, bởi cách đó có thể phá session của tab thường:
-
-```text
-Tab thường → login example.com
-Tab incognito → example.com
-Đóng incognito
-→ xóa cookie example.com
-→ tab thường bị logout
-```
-
-Bản sửa ưu tiên **không phá session** hơn là giả vờ cung cấp isolation mà WebView không hỗ trợ.
-
-Nếu cần profile isolation thực sự, kiến trúc cần tách storage/process hoặc dùng engine hỗ trợ browser contexts.
-
----
-
-# 9. User-Agent và fingerprint
-
-Preset:
-
-```text
 chrome_mobile
 chrome_desktop
 firefox_mobile
@@ -418,370 +122,1130 @@ safari_mobile
 safari_desktop
 duckduckgo_mobile
 moonlite_default
-```
 
-Ví dụ:
-
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/useragent" \
-  -d '{"preset":"chrome_desktop"}'
-```
-
-Bản sửa quản lý `DocumentStartScript` bằng `ScriptHandler`:
-
-```text
-preset A
-  ↓ remove script A
-preset B
-  ↓ add script B
-reload
-  ↓ chỉ chạy B
-```
-
-Không còn tình trạng A + B cùng chạy và cùng override `navigator`.
-
-### Giới hạn
-
-WebView vẫn là Chromium. Firefox/Safari preset chỉ là emulation; một site fingerprinting chuyên sâu vẫn có thể phát hiện khác biệt qua WebGL, canvas, audio, timing, network stack, TLS và các đặc trưng Chromium khác.
+«Emulation is designed for compatibility and testing. It should not be considered a guarantee of complete browser fingerprint anonymity.»
 
 ---
 
-# 10. Runtime emulation
+🛡️ Security
 
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/emulate" \
-  -d '{
-    "locale":"en-US",
-    "timezone":"America/New_York",
-    "latitude":40.7128,
-    "longitude":-74.0060,
-    "accuracy":20,
-    "hardwareConcurrency":8,
-    "deviceMemory":8
-  }'
-```
+The control API listens only on:
 
-Các giá trị được validate:
+127.0.0.1:8848
 
-- latitude: `-90..90`;
-- longitude: `-180..180`;
-- accuracy: `> 0`;
-- hardwareConcurrency: `1..256`;
-- deviceMemory: `1..1024`;
-- timezone phải tồn tại trong IANA timezone database của Android;
-- locale phải có dạng locale hợp lệ cơ bản.
+Every endpoint except "/status" requires:
 
-Timezone offset được tính theo **Date đang được hỏi**, nên DST thay đổi theo ngày thay vì dùng một offset cố định của thời điểm hiện tại.
+Authorization: Bearer YOUR_TOKEN
 
-Đây vẫn là JS-layer emulation, không phải kernel/network-level spoofing.
+The authentication token is generated using "SecureRandom" and stored in the application's private storage.
+
+This is important because Android loopback is not automatically a security boundary.
+
+A local process may still access:
+
+127.0.0.1
+
+Therefore MoonLite requires authentication even though the server is not exposed directly to the LAN.
 
 ---
 
-# 11. Proxy
+🏗️ Architecture
 
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/proxy" \
-  -d '{"host":"1.2.3.4","port":8080,"scheme":"socks5"}'
-```
+┌─────────────────────────────┐
+│       Terminal / PC         │
+│                             │
+│ curl / Python / custom app  │
+└──────────────┬──────────────┘
+               │
+               │ HTTP
+               │ Bearer Token
+               ▼
+┌─────────────────────────────┐
+│ 127.0.0.1:8848              │
+│                             │
+│ MoonLite ControlServer       │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│      MoonliteService        │
+│                             │
+│ TabManager                  │
+│ BrowserActions              │
+│ FingerprintSync             │
+│ UserScriptManager           │
+│ TranslateManager            │
+└──────────────┬──────────────┘
+               │
+               ▼
+┌─────────────────────────────┐
+│ Android WebView / Chromium  │
+└─────────────────────────────┘
 
-Xóa:
+When controlling MoonLite from a PC, ADB forwarding can be used:
 
-```bash
-curl -H "Authorization: Bearer $MOONLITE_TOKEN" \
-  -H 'Content-Type: application/json' \
-  -X POST "$BASE/proxy" \
-  -d '{"clear":true}'
-```
-
-Proxy hiện áp dụng **toàn app**, không phải từng tab. Đây là giới hạn của WebView/ProxyController.
+PC
+ │
+ │ adb forward
+ ▼
+Android
+ │
+ ▼
+127.0.0.1:8848
 
 ---
 
-# 12. DevTools
+📦 Version
 
-Remote WebView debugging chỉ được bật mặc định trong debug build:
+Current version: "1.17.1"
 
-```kotlin
-WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
-```
+Component| Version
+MoonLite| 1.17.1
+Version Code| 11701
+Android min SDK| 24
+Android target SDK| 34
+Compile SDK| 34
+Kotlin| 1.9.22
+Android Gradle Plugin| 8.3.2
+Gradle| 8.5
+AndroidX WebKit| 1.11.0
+NanoHTTPD| 2.3.1
 
-Trong debug build có thể dùng Chrome desktop:
+Release status
 
-```text
-chrome://inspect
-```
-
-Kết nối Android bằng USB debugging.
-
-Release build không tự bật WebView debugging.
+1.17.1
+│
+├── Stable source build
+├── Local HTTP control API
+├── Background browser service
+├── Multi-tab support
+├── Browser emulation
+└── Automation endpoints
 
 ---
 
-# 13. Security model
+🚀 Installation
 
-### Đã làm
+Android
 
-- control server bind loopback;
-- Bearer token ngẫu nhiên 32 byte;
-- so sánh token bằng constant-time `MessageDigest.isEqual`;
-- `/status` không trả token;
-- token không được đưa vào URL;
-- body request có giới hạn theo `Content-Length`;
-- upload có giới hạn riêng;
-- screenshot có giới hạn pixel;
-- `/emulate` có validation;
-- remote WebView debugging không tự bật trong release;
-- Android backup tắt để tránh backup secret token;
-- đóng WebView được serialize với request lock để giảm race `destroy()` vs evaluate/draw.
+Build or obtain the APK and install it:
 
-### Không nên làm
+adb install app-debug.apk
 
-Không mở server ra `0.0.0.0` chỉ để PC truy cập qua Wi-Fi. Nếu cần điều khiển từ PC, dùng:
+Start MoonLite:
 
-```bash
+adb shell am start -n com.moonlite.browser/.MainActivity
+
+---
+
+🔌 Connect from PC
+
+Forward the local control port:
+
 adb forward tcp:8848 tcp:8848
-```
 
-Không commit token vào source hoặc shell script public.
+The browser API is now available locally on the PC at:
 
-Không đặt token vào:
+http://127.0.0.1:8848
 
-```text
-http://127.0.0.1:8848/eval?token=...
-```
+Check the server:
 
-vì query string dễ xuất hiện trong log/history/proxy tooling.
-
----
-
-# 14. Những giới hạn WebView cố hữu
-
-MoonLite không tuyên bố những khả năng mà WebView không cung cấp:
-
-| Có | Giới hạn |
-|---|---|
-| JS eval | Không có Playwright BrowserContext isolation hoàn chỉnh |
-| Screenshot | Không có PDF public API đơn giản |
-| Cookies | Cookie store không tách per-tab |
-| UA + Client Hints | Chromium vẫn là engine thật bên dưới |
-| Locale/timezone/geolocation JS | Không thay đổi kernel/network fingerprint |
-| Proxy | Toàn app, không per-tab |
-| Open shadow root | Không xuyên closed shadow root |
-| Same-origin iframe | Không xuyên cross-origin iframe |
-| Network log | Không phải full DevTools Network interception |
-| Background tabs | Vẫn phụ thuộc Android WebView/OEM memory policy |
-| Service restart | `START_STICKY` không vượt qua Force Stop |
-
----
-
-# 15. Troubleshooting
-
-### API trả 401
-
-Lấy token trong MoonLite → API token → Sao chép, sau đó:
-
-```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" http://127.0.0.1:8848/tabs
-```
-
-### PC không kết nối được
-
-Kiểm tra:
-
-```bash
-adb devices
-adb forward tcp:8848 tcp:8848
 curl http://127.0.0.1:8848/status
-```
 
-### Activity đóng nhưng browser vẫn chạy
+Expected response:
 
-Đây là thiết kế. `MoonliteService` là foreground service và `stopWithTask=false`.
+{
+  "status": "ok",
+  "auth": "bearer"
+}
 
-### Browser bị Android/OEM kill
-
-Android vẫn có quyền kill process khi thiếu RAM hoặc khi người dùng force-stop. Không có app Android nào có thể bảo đảm service sống sau Force Stop.
-
-### Incognito làm tôi kỳ vọng cookie isolation
-
-Không có isolation hoàn chỉnh trên một process WebView. Xem mục **Incognito: giới hạn thực tế** ở trên.
-
-### Fingerprint vẫn bị phát hiện
-
-Đây là expected limitation của WebView. MoonLite chỉ đồng bộ các lớp UA/Client Hints/JS mà WebView public API cho phép; không biến Chromium thành Firefox/Safari thật.
+"/status" intentionally does not expose the authentication token.
 
 ---
 
-# 16. Kiến trúc source
+🔑 Authentication
 
-```text
-app/src/main/java/com/moonlite/browser/
-├── MoonliteService.kt       # foreground engine lifecycle
-├── TabManager.kt            # WebView/tab lifecycle + synchronization
-├── ControlServer.kt         # authenticated local HTTP API
-├── BrowserActions.kt        # navigation/search helpers
-├── FingerprintSync.kt       # UA/Client-Hints/document-start spoof
-├── EmulationProfile.kt      # locale/timezone/geo/hardware JS emulation
-├── UaPresets.kt              # UA persona definitions
-├── UserScriptManager.kt     # userscript/CSS registry
-├── TranslateManager.kt      # free translation helper
-├── AdBlockList.kt            # small built-in blocker
-├── AppPrefs.kt               # persistent settings + API token
-└── MainActivity.kt           # UI shell only
-```
+MoonLite uses a per-installation Bearer token.
+
+HTTP header:
+
+Authorization: Bearer YOUR_TOKEN
+
+Example:
+
+export MOONLITE_TOKEN="YOUR_TOKEN"
+export BASE="http://127.0.0.1:8848"
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/tabs"
+
+Never put the token inside:
+
+URL
+query parameters
+HTML
+logs
+Git repositories
+public source code
 
 ---
 
-# 17. Nguyên tắc phát triển tiếp theo
+🧪 API
 
-Nếu tiếp tục mở rộng MoonLite, ưu tiên theo thứ tự:
+All API endpoints require the Bearer token unless explicitly stated otherwise.
 
-1. giữ control API **authenticated + loopback-only**;
-2. không bao giờ dùng host-wide cookie deletion để giả lập incognito;
-3. mọi document-start injection phải giữ `ScriptHandler` để remove được;
-4. mọi API nhận dữ liệu lớn phải có giới hạn trước khi decode/allocate;
-5. mọi lifecycle `WebView.destroy()` phải serialize với request đang chạy;
-6. không bật remote debugging mặc định trong release;
-7. không tuyên bố fingerprint/profile isolation mạnh hơn khả năng thực tế của WebView.
+Base URL:
 
+http://127.0.0.1:8848
 
+---
 
-## v11 stability notes
+GET Endpoints
 
-- Release builds do **not** enable WebView remote debugging. `chrome://inspect`
-  is available only in debug builds.
-- The control API remains bound to `127.0.0.1:8848` and requires the generated
-  Bearer token for every endpoint except `/status`.
-- `/upload` is capped at 8 MiB decoded data and `/screenshot` is capped at
-  8,000,000 pixels.
-- The `incognito` tab flag is **session-like only**. Android WebView does not
-  provide a separate cookie profile per WebView in the same process. MoonLite
-  deliberately does not delete cookies when an incognito tab closes, because
-  doing so would also delete cookies belonging to normal tabs. Do not use this
-  mode when strict cookie isolation is required.
-- Fingerprint document-start handlers are removed before a UA/emulation profile
-  is replaced, preventing old profiles from accumulating.
-- GitHub Actions builds with JDK 17, Android SDK 34, AGP 8.3.2 and Gradle 8.5.
+"GET /status"
 
+Returns basic server status.
 
-## v12 build-fix note
+Authentication:
 
-GitHub Actions v11 logs showed three compile issues: NanoHTTPD 2.3.1 has no `Response.Status.REQUEST_ENTITY_TOO_LARGE`, and Android Gradle Plugin was not generating `BuildConfig`. v12 uses `Response.Status.BAD_REQUEST` for rejected oversized bodies (the JSON still states the size limit) and explicitly enables `buildConfig true`.
+No
 
-## v13 UI/UX overhaul
+Example:
 
-v13 keeps the v12 browser/control/security architecture and focuses on a compact mobile browser shell:
+curl http://127.0.0.1:8848/status
 
-- Compact tab strip and URL toolbar; the WebView gets more vertical space by default.
-- Vector drawable icons are used for toolbar, tabs, settings and navigation controls instead of emoji/raster UI assets.
-- URL bar gets a subtle focus animation and keeps the touch target comfortable while reducing visual footprint.
-- Tab chips use a light fade/scale entrance animation. The animation can be disabled in Settings.
-- A small `+` action lives in the tab strip instead of consuming a full toolbar button.
-- The overflow menu contains New Tab, Reload, Incognito Tab and Settings.
-- The tab strip collapses while scrolling down and returns when scrolling up, giving the page more usable space.
-- Settings is now a dedicated multi-section screen: General, Appearance, Privacy & Security, Fingerprint, Performance, Tabs, Developer and About.
-- Settings exposes practical controls for search engine, homepage, compact UI, tab animation, ad blocking, browser persona, locale profile, browsing-data clearing and API token access.
-- The compact/comfortable UI preference is shared through `AppPrefs`, so returning to the browser applies the selected density.
+---
 
-### UI asset policy
+"GET /health"
 
-Prefer this order for new UI assets:
+Returns runtime information such as:
 
-1. Android VectorDrawable XML for icons and simple shapes.
-2. XML shape/selector/gradient drawables for backgrounds and states.
-3. WebView CSS only for content rendered inside the browser page itself.
-4. PIL/raster assets only when a visual genuinely cannot be represented cleanly as a vector/drawable.
+- uptime
+- tab count
+- memory information
 
-Avoid emoji as functional UI icons because their glyph shape varies by Android vendor/font.
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/health"
 
-## v14 bugfix + streaming
+---
 
-Three real bugs found and fixed:
+"GET /tabs"
 
-- **Translate was almost non-functional.** The `HttpURLConnection` calls to
-  Google's `gtx` endpoint never set a `User-Agent` header, leaving Java's own
-  default (`Java/17...`). That endpoint aggressively blocks/rate-limits that
-  exact default UA under real page-translate load (dozens of requests in a
-  burst) — most came back HTTP 403, and those were silently swallowed, so
-  only the first few lucky requests before the block kicked in ever got
-  translated. Fixed by sending a normal browser User-Agent/Accept-Language/
-  Referer (the same fix other gtx-endpoint clients use), applying each
-  text's translation to the DOM the moment it resolves instead of waiting
-  for the whole batch (visibly progressive instead of one long pause),
-  retrying once on transient failures, and staggering request dispatch to
-  avoid re-triggering the same block. Auto-translate also now waits ~900ms
-  after `onPageFinished` before running, since a JS-rendered SPA's content
-  often isn't in the DOM yet at that exact moment.
-- **Settings > Language did nothing.** Picking a locale wrote `locale_override`
-  to prefs and showed a success Toast, but nothing anywhere ever read that
-  pref back — a fully dead setting. Now wired into `TabManager`'s
-  `defaultEmulationProvider` (applies to every new tab) and applied
-  immediately to the tab that's already open when changed.
-- **`UserScriptManager` had no synchronization.** `add()`/`remove()` run on a
-  NanoHTTPD request thread (`POST /userscript`) while `buildInjectionFor()`
-  runs on the main thread on every page load — racing those against a plain
-  `ArrayList` risks `ConcurrentModificationException`. Now `@Synchronized`,
-  matching the convention already used in `TabManager`.
+Returns currently available tabs.
 
-New: `GET /stream` — Server-Sent Events pushing live `/console` and
-`/network` entries for the active tab as they happen, instead of polling
-those endpoints in a loop. See section 6.
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/tabs"
 
-## v15: visual live stream
+---
 
-`/stream` (Server-Sent Events) carries console/network log entries only —
-no pixels at all. A page that renders correctly but never logs anything or
-fires matching requests looks totally blank through it, since there was
-never anything visual in that stream to begin with.
+"GET /scrape"
 
-New: `GET /stream/screenshot?width=&height=&fps=` — an actual MJPEG video
-feed of the active tab, repeatedly capturing the same way `/screenshot`
-does (works even headless). `curl -N` it into `ffplay -f mjpeg -i -`, or
-anything else that can consume a `multipart/x-mixed-replace` stream and set
-a custom header — a bare `<img src=...>` tag can't authenticate, since this
-app deliberately never accepts the token via query string (section 2).
+Scrapes information from the active page.
 
-## v16: overlay-backed background tabs
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/scrape"
 
-Chosen over the JS-only fix: a real, persistent overlay window owned by
-the *service* (not the Activity), so background tabs stay genuinely
-attached to a live window — which is what Chromium's own visibility
-tracking actually keys off — even after MainActivity closes entirely, not
-just spoofed at the JS layer.
+---
 
-- New `OverlayHost`: a 1-window, alpha-0, untouchable/unfocusable
-  `TYPE_APPLICATION_OVERLAY` (or `TYPE_PHONE` below API 26) window sized to
-  match the app's own default mobile viewport. Requires the "Display over
-  other apps" special permission (`SYSTEM_ALERT_WINDOW`) — Settings > Tabs
-  > "Giữ tab sống khi đóng app". Every code path checks
-  `Settings.canDrawOverlays()` first and no-ops without it; the app is
-  fully functional without the permission, just falls back to the
-  JS-visibility-spoof-only behavior from before.
-- Fixed a second, related bug found while building this: switching tabs
-  was *also* silently orphaning the previous tab's WebView —
-  `attachActiveTo()` used to just `container.removeAllViews()` and drop
-  whatever was there on the floor, the same underlying problem as the
-  whole "background tab doesn't render" issue, just triggered by a tab
-  switch instead of backgrounding the app. It now parks the outgoing tab
-  in the overlay instead.
-- Every newly created tab is parked in the overlay immediately at
-  creation, so it's attached to a real window from the very start rather
-  than only whenever it first happens to become active or get switched
-  away from.
-- Granting the permission from Settings immediately re-parks whatever
-  tabs are already open (`reparkInactiveTabs()`), instead of only taking
-  effect on the next tab switch/app close.
+"GET /html"
 
-Honest limit: this makes Android/Chromium consider a parked tab genuinely
-visible/attached, which is what most real-world cases actually key off.
-It can't override Chromium's own internal throttling decisions for a
-window some OEM battery-optimization layer still decides to treat as
-occluded — there's no public API surface for that, and it would need
-real-device testing per OEM to characterize precisely.
+Returns the page HTML.
 
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/html"
+
+---
+
+"GET /exists"
+
+Check whether an element exists.
+
+/exists?selector=.login-button
+
+---
+
+"GET /attribute"
+
+Read an element property/attribute.
+
+/attribute?selector=img&name=src
+
+---
+
+"GET /elements"
+
+Query multiple elements.
+
+/elements?selector=.product&limit=20
+
+---
+
+"GET /console"
+
+Read recent console events.
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/console"
+
+---
+
+"GET /network"
+
+Read recent network events.
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/network"
+
+---
+
+"GET /cookies"
+
+Read cookies for a URL.
+
+/cookies?url=https://example.com
+
+---
+
+"GET /cookies/all"
+
+Read all cookies associated with the specified URL/context.
+
+---
+
+"GET /screenshot"
+
+Capture the current page as PNG.
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/screenshot?width=460&height=980"
+
+Default:
+
+460 × 980
+
+Maximum:
+
+2048 × 4096
+8,000,000 pixels
+
+These limits help prevent excessive bitmap allocation and OOM conditions.
+
+---
+
+"GET /stream"
+
+Server-Sent Events stream for:
+
+console
+network
+
+Example:
+
+curl -N \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/stream?types=console,network"
+
+---
+
+"GET /stream/screenshot"
+
+Live MJPEG screenshot stream.
+
+Example:
+
+curl -N \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/stream/screenshot?width=460&height=980&fps=2" \
+  | ffplay -f mjpeg -i -
+
+Supported FPS:
+
+1–5
+
+Higher frame rates may increase main-thread contention because each frame requires a real WebView measurement/layout/draw operation.
+
+---
+
+📮 POST Endpoints
+
+"POST /navigate"
+
+Navigate to a URL.
+
+{
+  "url": "https://example.com"
+}
+
+Example:
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "$BASE/navigate" \
+  -d '{"url":"https://example.com"}'
+
+---
+
+"POST /search"
+
+Search using the configured search engine.
+
+{
+  "query": "MoonLite Browser"
+}
+
+---
+
+"POST /back"
+
+Go back in browser history.
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -X POST "$BASE/back"
+
+---
+
+"POST /forward"
+
+Go forward in browser history.
+
+---
+
+"POST /reload"
+
+Reload the current page.
+
+---
+
+"POST /click"
+
+Click an element.
+
+{
+  "selector": "button.login",
+  "timeout": 5000
+}
+
+---
+
+"POST /fill"
+
+Fill an input.
+
+{
+  "selector": "input[name=username]",
+  "text": "hello"
+}
+
+MoonLite uses the native input setter and dispatches:
+
+input
+change
+
+events to improve compatibility with React/Vue-style controlled inputs.
+
+---
+
+"POST /hover"
+
+Hover over an element.
+
+{
+  "selector": "#menu"
+}
+
+---
+
+"POST /select"
+
+Select an option.
+
+{
+  "selector": "select[name=country]",
+  "value": "vn"
+}
+
+---
+
+"POST /key"
+
+Send a keyboard key.
+
+{
+  "selector": "input",
+  "key": "Enter"
+}
+
+---
+
+"POST /scroll"
+
+Scroll the page.
+
+{
+  "x": 0,
+  "y": 800
+}
+
+---
+
+"POST /wait_for_selector"
+
+Wait for an element.
+
+{
+  "selector": ".content",
+  "timeout": 5000
+}
+
+---
+
+"POST /eval"
+
+Execute JavaScript inside the active page.
+
+{
+  "script": "document.title"
+}
+
+Example:
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "$BASE/eval" \
+  -d '{"script":"document.title"}'
+
+«⚠️ "/eval" is a highly privileged endpoint. It can execute arbitrary JavaScript inside the active page context.»
+
+---
+
+"POST /upload"
+
+Upload a file to:
+
+<input type="file">
+
+Example:
+
+{
+  "selector": "input[type=file]",
+  "filename": "avatar.png",
+  "mime": "image/png",
+  "content_base64": "..."
+}
+
+Current limits:
+
+Limit| Value
+Request body| 12 MiB
+Base64 field| 12 MiB
+Decoded file| 8 MiB
+
+---
+
+"POST /cookies"
+
+Set/import cookies.
+
+Example:
+
+{
+  "url": "https://example.com",
+  "cookies": "session=abc123"
+}
+
+---
+
+"POST /cookies/import"
+
+Import structured cookies.
+
+{
+  "cookies": [
+    {
+      "name": "session",
+      "value": "abc123"
+    }
+  ]
+}
+
+«⚠️ Cookies may contain authentication credentials. Protect the API token and cookie data accordingly.»
+
+---
+
+"POST /emulate"
+
+Configure browser/device emulation.
+
+Possible categories include:
+
+locale
+timezone
+geolocation
+accuracy
+CPU
+memory
+screen
+
+Input is validated before being applied.
+
+---
+
+"POST /useragent"
+
+Change the active User-Agent preset.
+
+Example:
+
+{
+  "preset": "chrome_mobile"
+}
+
+Unknown presets are rejected.
+
+---
+
+"POST /proxy"
+
+Configure the application-wide WebView proxy.
+
+«The AndroidX WebKit "ProxyController" operates at application/WebView level, not as a per-request HTTP proxy abstraction.»
+
+---
+
+"POST /adblock"
+
+Enable or configure the built-in lightweight ad blocker.
+
+---
+
+"POST /userscript"
+
+Manage userscript/CSS injection.
+
+Userscripts are injected at document start where supported by the implementation.
+
+---
+
+"POST /translate"
+
+Translate the current page.
+
+{
+  "target": "vi"
+}
+
+MoonLite does not require a Google API key for the current translation implementation.
+
+«The translation implementation relies on an unofficial Google Translate endpoint. It may change, become rate-limited or stop working without notice.»
+
+---
+
+🐍 Python Example
+
+import requests
+
+BASE = "http://127.0.0.1:8848"
+TOKEN = "YOUR_TOKEN"
+
+headers = {
+    "Authorization": f"Bearer {TOKEN}"
+}
+
+# Open a page
+response = requests.post(
+    f"{BASE}/navigate",
+    headers=headers,
+    json={
+        "url": "https://example.com"
+    },
+    timeout=15
+)
+
+print(response.json())
+
+# Execute JavaScript
+response = requests.post(
+    f"{BASE}/eval",
+    headers=headers,
+    json={
+        "script": "document.title"
+    },
+    timeout=15
+)
+
+print(response.json())
+
+---
+
+🖥️ Terminal Example
+
+export BASE="http://127.0.0.1:8848"
+export MOONLITE_TOKEN="YOUR_TOKEN"
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "$BASE/navigate" \
+  -d '{"url":"https://example.com"}'
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  "$BASE/scrape"
+
+curl \
+  -H "Authorization: Bearer $MOONLITE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -X POST "$BASE/eval" \
+  -d '{"script":"document.title"}'
+
+---
+
+🔐 Security Model
+
+MoonLite intentionally treats the control API as a privileged interface.
+
+The following endpoints should be considered highly sensitive:
+
+/eval
+/cookies
+/cookies/all
+/cookies/import
+/upload
+/navigate
+/proxy
+/useragent
+/emulate
+
+The authentication token protects the API, but it does not turn the browser into a security sandbox.
+
+In particular:
+
+- Anyone possessing the token can control the browser.
+- "/eval" can execute JavaScript in the active page.
+- Cookies can contain login sessions.
+- Navigation can access arbitrary URLs.
+- File upload can interact with pages containing file inputs.
+- Proxy configuration affects WebView networking.
+- A compromised Android process with sufficient privileges may still interact with the application environment.
+
+Treat the MoonLite token similarly to a privileged API credential.
+
+---
+
+🕵️ Incognito Limitations
+
+MoonLite supports an "incognito" tab mode, but Android WebView does not provide browser-context isolation equivalent to Playwright.
+
+WebView storage can be shared within the process.
+
+Therefore MoonLite deliberately avoids destructive behavior such as:
+
+close incognito
+        ↓
+delete cookies for host
+        ↓
+normal tab gets logged out
+
+This means:
+
+«"incognito=true" should not be interpreted as complete cookie/storage isolation.»
+
+True browser-context isolation would require a different architecture, such as separate storage/process contexts or an engine that natively supports isolated browser contexts.
+
+---
+
+📸 Screenshots
+
+Add project screenshots here:
+
+![MoonLite Browser](docs/images/home.png)
+
+![Browser Tabs](docs/images/tabs.png)
+
+![Settings](docs/images/settings.png)
+
+![Automation API](docs/images/api.png)
+
+Recommended repository structure:
+
+docs/
+└── images/
+    ├── home.png
+    ├── tabs.png
+    ├── settings.png
+    └── api.png
+
+«The current source archive contains the application icon but does not include full UI screenshots, so screenshots should be added separately rather than pretending they are included in this release.»
+
+---
+
+🛠️ Building From Source
+
+Requirements
+
+Recommended environment:
+
+Android Studio
+JDK 17
+Android SDK 34
+Gradle 8.5
+
+Build debug APK:
+
+./gradlew assembleDebug
+
+Windows:
+
+gradlew.bat assembleDebug
+
+Output:
+
+app/build/outputs/apk/debug/app-debug.apk
+
+---
+
+⚙️ Project Configuration
+
+Important Gradle configuration:
+
+compileSdk = 34
+minSdk = 24
+targetSdk = 34
+
+versionCode = 11701
+versionName = 1.17.1
+
+Main dependencies:
+
+AndroidX Core
+AndroidX AppCompat
+Material Components
+ConstraintLayout
+DrawerLayout
+AndroidX WebKit
+NanoHTTPD
+org.json
+
+---
+
+🧱 Project Structure
+
+MoonLite/
+├── app/
+│   ├── src/
+│   │   └── main/
+│   │       ├── java/
+│   │       │   └── com/moonlite/browser/
+│   │       │       ├── MainActivity.kt
+│   │       │       ├── MoonliteService.kt
+│   │       │       ├── ControlServer.kt
+│   │       │       ├── TabManager.kt
+│   │       │       ├── BrowserActions.kt
+│   │       │       ├── FingerprintSync.kt
+│   │       │       ├── EmulationProfile.kt
+│   │       │       ├── UaPresets.kt
+│   │       │       ├── UserScriptManager.kt
+│   │       │       ├── TranslateManager.kt
+│   │       │       ├── AdBlockList.kt
+│   │       │       └── ...
+│   │       ├── res/
+│   │       └── AndroidManifest.xml
+│   └── build.gradle
+│
+├── .github/
+│   └── workflows/
+│       └── build.yml
+│
+├── build.gradle
+├── settings.gradle
+├── gradle.properties
+└── README.md
+
+---
+
+🧪 Debugging
+
+MoonLite includes startup diagnostics.
+
+The application can write:
+
+startup_crash.log
+
+Useful ADB command:
+
+adb logcat -c
+
+adb logcat -v time | grep -E \
+"MoonLiteStartup|AndroidRuntime|MoonliteService|MoonLite"
+
+When investigating a startup crash, look for the last:
+
+SERVICE:*
+MAIN:*
+
+checkpoint before:
+
+UNCAUGHT_EXCEPTION
+
+---
+
+🩹 Known Limitations
+
+MoonLite is built on Android WebView, so it intentionally inherits some platform limitations.
+
+Network idle
+
+MoonLite cannot provide Playwright's exact "networkidle" behavior because stock Android WebView does not expose a complete public API for tracking all in-flight network activity.
+
+Navigation therefore uses:
+
+onPageFinished
++
+DOM stability polling
++
+timeout
+
+rather than pretending this is a true network-idle detector.
+
+Proxy
+
+The proxy controller operates at the WebView/application level.
+
+It is not equivalent to having a fully programmable per-request proxy layer.
+
+Fingerprinting
+
+User-Agent and browser-visible values can be synchronized, but:
+
+«no WebView-based fingerprint spoofing system can guarantee complete anti-fingerprinting behavior.»
+
+Translation
+
+The current translation implementation uses an unofficial Google Translate endpoint and may stop functioning if the upstream service changes.
+
+Incognito
+
+Incognito does not provide Playwright-style isolated browser contexts.
+
+Background execution
+
+Android may still reclaim resources under memory pressure or terminate applications under system conditions.
+
+Foreground service usage improves persistence but cannot override the Android operating system.
+
+---
+
+📋 API Quick Reference
+
+Method| Endpoint| Purpose
+GET| "/status"| Server status
+GET| "/health"| Runtime health
+GET| "/tabs"| List tabs
+GET| "/scrape"| Scrape active page
+GET| "/html"| Get HTML
+GET| "/exists"| Check element
+GET| "/attribute"| Read attribute
+GET| "/elements"| Query elements
+GET| "/console"| Console log
+GET| "/network"| Network log
+GET| "/cookies"| Read cookies
+GET| "/cookies/all"| Read cookie set
+GET| "/screenshot"| Capture PNG
+GET| "/stream"| SSE events
+GET| "/stream/screenshot"| MJPEG stream
+POST| "/navigate"| Navigate
+POST| "/search"| Search
+POST| "/back"| History back
+POST| "/forward"| History forward
+POST| "/reload"| Reload
+POST| "/click"| Click
+POST| "/fill"| Fill input
+POST| "/hover"| Hover
+POST| "/select"| Select option
+POST| "/key"| Keyboard input
+POST| "/scroll"| Scroll
+POST| "/eval"| Execute JavaScript
+POST| "/wait_for_selector"| Wait for element
+POST| "/upload"| Upload file
+POST| "/cookies"| Set cookies
+POST| "/cookies/import"| Import cookies
+POST| "/emulate"| Device emulation
+POST| "/proxy"| Configure proxy
+POST| "/adblock"| Ad blocking
+POST| "/tabs/new"| Create tab
+POST| "/tabs/close"| Close tab
+POST| "/tabs/switch"| Switch tab
+POST| "/useragent"| Change UA
+POST| "/userscript"| Userscript/CSS
+POST| "/translate"| Translate page
+
+---
+
+🤝 Contributing
+
+Contributions are welcome.
+
+Before opening a pull request:
+
+1. Keep changes focused.
+2. Explain the reason for the change.
+3. Test the affected Android/WebView behavior.
+4. Do not commit API tokens, cookies or private credentials.
+5. Update the README when adding or changing API endpoints.
+6. Preserve the local-only control-server security model unless there is a documented reason to change it.
+
+Suggested workflow:
+
+git checkout -b feature/my-change
+
+# make changes
+
+./gradlew assembleDebug
+
+git add .
+git commit -m "feat: describe the change"
+
+git push origin feature/my-change
+
+---
+
+🐛 Bug Reports
+
+When reporting a bug, include:
+
+MoonLite version:
+Android version:
+Device:
+WebView version:
+Build type:
+Steps to reproduce:
+Expected behavior:
+Actual behavior:
+Relevant logcat:
+
+For startup crashes, include the relevant:
+
+startup_crash.log
+
+and:
+
+adb logcat
+
+output.
+
+Never include:
+
+API tokens
+cookies
+session credentials
+passwords
+private URLs
+
+---
+
+📜 License
+
+License: Not yet specified.
+
+The current source archive does not contain a LICENSE file, so users and contributors should not assume that the project is MIT, Apache-2.0, GPL, or otherwise open-source licensed merely because the source code is publicly available.
+
+Before publishing the repository, add a license explicitly, for example:
+
+LICENSE
+
+and update this section.
+
+If the intended license is MIT, this section can later be changed to:
+
+MoonLite Browser is released under the MIT License. See LICENSE for the full license text.
+
+⚠️ Disclaimer
+
+MoonLite is provided for development, automation, testing and research purposes.
+
+The authors are not responsible for:
+
+misuse of the automation API;
+
+loss of cookies or sessions;
+
+account lockouts;
+
+websites rejecting automated traffic;
+
+third-party service changes;
+
+proxy-related issues;
+
+WebView implementation differences;
+
+data loss caused by incorrect API usage.
+
+Users are responsible for complying with:
+
+applicable laws;
+
+website terms of service;
+
+API terms;
+
+authentication requirements;
+
+privacy requirements;
+
+applicable third-party licenses.
+
+🌙 Why MoonLite?
+
+MoonLite aims to keep the architecture simple:
+
+Android
+   +
+WebView
+   +
+Small HTTP API
+   +
+Terminal
+
+No external browser daemon is required.
+
+No Playwright installation is required on the Android device.
+
+No separate Chromium binary is bundled.
+
+The browser engine already provided by Android does the heavy lifting, while MoonLite exposes the parts needed for automation and remote control.
+
+📌 Project Status
+
+Version: 1.17.1
+
+Platform: Android
+
+Engine: Android WebView / Chromium
+
+API: Local HTTP + JSON
+
+Default address:
+
+127.0.0.1:8848
+
+Authentication: Bearer token
+
+Minimum Android: Android 7.0 / API 24
+
+<p align="center">
+
+MoonLite Browser — Lightweight browser control for Android. 🌙
+
+</p>
