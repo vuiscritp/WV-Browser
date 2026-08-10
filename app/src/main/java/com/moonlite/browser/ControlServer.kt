@@ -75,6 +75,7 @@ import java.util.concurrent.TimeUnit
  *   GET  /proxy                      -> current proxy rule (or null)
  *   POST /proxy {"host":..,"port":..,"scheme":..?} or {"clear":true} -> app-wide proxy override
  *   GET  /stream?types=console,network -> Server-Sent Events, live console/network entries (max 55s/connection, reconnect after)
+ *   GET  /stream/screenshot?width=&height=&fps= -> MJPEG live video of the active tab (max 55s/connection, reconnect after)
  *
  * Honest gaps vs. Playwright: no native PDF export (WebView exposes no
  * public print-to-PDF hook without extra plumbing), no WebRTC IP-leak
@@ -180,6 +181,7 @@ class ControlServer(
                 "/proxy" -> handleProxy(session)
                 "/health" -> jsonResponse(Response.Status.OK, handleHealth())
                 "/stream" -> handleStream(session)
+                "/stream/screenshot" -> handleScreenshotStream(session)
                 "/adblock" -> handleAdblock(session)
                 "/tabs" -> jsonResponse(Response.Status.OK, listTabsJson())
                 "/tabs/new" -> handleNewTab(session)
@@ -592,8 +594,8 @@ class ControlServer(
      * versions, and this capture only lasts one frame so the perf cost is
      * negligible.
      */
-    private fun captureScreenshot(webView: WebView, width: Int, height: Int): String? {
-        var result: String? = null
+    private fun captureScreenshotBytes(webView: WebView, width: Int, height: Int, format: Bitmap.CompressFormat, quality: Int): ByteArray? {
+        var result: ByteArray? = null
         val latch = CountDownLatch(1)
         mainHandler.post {
             try {
@@ -610,9 +612,9 @@ class ControlServer(
                 webView.draw(canvas)
 
                 val stream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.PNG, 90, stream)
+                bitmap.compress(format, quality, stream)
                 bitmap.recycle()
-                result = Base64.encodeToString(stream.toByteArray(), Base64.NO_WRAP)
+                result = stream.toByteArray()
 
                 webView.setLayerType(originalLayerType, null)
             } catch (e: Exception) {
@@ -623,6 +625,81 @@ class ControlServer(
         }
         latch.await(5, TimeUnit.SECONDS)
         return result
+    }
+
+    private fun captureScreenshot(webView: WebView, width: Int, height: Int): String? {
+        val bytes = captureScreenshotBytes(webView, width, height, Bitmap.CompressFormat.PNG, 90) ?: return null
+        return Base64.encodeToString(bytes, Base64.NO_WRAP)
+    }
+
+    /**
+     * MJPEG (`multipart/x-mixed-replace`) — an actual *visual* live stream
+     * of the active tab, repeatedly capturing the same way `/screenshot`
+     * does. This is what `/stream` (Server-Sent Events, console/network
+     * *log entries*) is NOT: that one carries no pixels at all, so a page
+     * that renders correctly but never calls console.log or fires matching
+     * network requests looks totally blank through it — because there was
+     * never anything visual in that stream to begin with. This endpoint is
+     * the actual fix for "watch a JS-heavy page render, live". Needs the
+     * same `Authorization: Bearer` header as every other endpoint (this
+     * app deliberately never accepts the token via query string — see
+     * README section 2 — so a bare `<img src=...>` tag can't authenticate
+     * on its own); consume it from something that can set headers instead:
+     * `curl -N -H "Authorization: Bearer $TOKEN" $BASE/stream/screenshot | ffplay -f mjpeg -i -`
+     *
+     * `?fps=` (default 2, max 5 — a WebView capture forces a real
+     * measure+layout+draw pass on the main thread every frame; higher than
+     * a few fps starts competing for main-thread time with the page's own
+     * rendering, which is counterproductive for a debugging view).
+     */
+    private fun handleScreenshotStream(session: IHTTPSession): Response {
+        val webView = webViewProvider() ?: return noActiveTab()
+        val width = session.parameters["width"]?.firstOrNull()?.toIntOrNull() ?: defaultScreenshotWidth
+        val height = session.parameters["height"]?.firstOrNull()?.toIntOrNull() ?: defaultScreenshotHeight
+        if (width !in 1..MAX_SCREENSHOT_WIDTH || height !in 1..MAX_SCREENSHOT_HEIGHT) {
+            return jsonResponse(Response.Status.BAD_REQUEST, errorJson("screenshot dimensions must be 1..${MAX_SCREENSHOT_WIDTH} x 1..${MAX_SCREENSHOT_HEIGHT}"))
+        }
+        if (width.toLong() * height.toLong() > MAX_SCREENSHOT_PIXELS) {
+            return jsonResponse(Response.Status.BAD_REQUEST, errorJson("screenshot too large; max ${MAX_SCREENSHOT_PIXELS} pixels"))
+        }
+        val fps = (session.parameters["fps"]?.firstOrNull()?.toIntOrNull() ?: 2).coerceIn(1, 5)
+        val frameIntervalMs = 1000L / fps
+        val boundary = "moonliteframe"
+
+        val pipeOut = java.io.PipedOutputStream()
+        val pipeIn = java.io.PipedInputStream(pipeOut, 65536)
+
+        val thread = Thread {
+            val deadline = System.currentTimeMillis() + STREAM_MAX_DURATION_MS
+            try {
+                while (System.currentTimeMillis() < deadline) {
+                    val frameStart = System.currentTimeMillis()
+                    val jpeg = captureScreenshotBytes(webView, width, height, Bitmap.CompressFormat.JPEG, 70)
+                    if (jpeg != null) {
+                        val header = "--$boundary\r\nContent-Type: image/jpeg\r\nContent-Length: ${jpeg.size}\r\n\r\n"
+                        pipeOut.write(header.toByteArray(Charsets.US_ASCII))
+                        pipeOut.write(jpeg)
+                        pipeOut.write("\r\n".toByteArray(Charsets.US_ASCII))
+                        pipeOut.flush()
+                    }
+                    val elapsed = System.currentTimeMillis() - frameStart
+                    val sleepMs = frameIntervalMs - elapsed
+                    if (sleepMs > 0) Thread.sleep(sleepMs)
+                }
+            } catch (e: Exception) {
+                // Client disconnected (broken pipe) or stream torn down — either way, just stop.
+            } finally {
+                try { pipeOut.close() } catch (e: Exception) { }
+            }
+        }
+        thread.isDaemon = true
+        thread.start()
+
+        val response = newChunkedResponse(Response.Status.OK, "multipart/x-mixed-replace; boundary=$boundary", pipeIn)
+        response.addHeader("Cache-Control", "no-cache")
+        response.addHeader("Connection", "keep-alive")
+        response.addHeader("X-Accel-Buffering", "no")
+        return response
     }
 
     private fun handleConsole(): Response {
