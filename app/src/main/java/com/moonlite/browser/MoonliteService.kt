@@ -273,7 +273,7 @@ class MoonliteService : Service() {
             PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("MoonLite đang chạy nền")
+            .setContentTitle("MoonLite")
             .setContentText(text)
             .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
