@@ -1,16 +1,6 @@
 package com.moonlite.browser
 
 import android.app.Application
-import android.content.ContentValues
-import android.net.Uri
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
-import android.util.Log
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class MoonliteApplication : Application() {
 
@@ -18,62 +8,28 @@ class MoonliteApplication : Application() {
         super.onCreate()
         UiLanguage.ensureDefault()
     }
+}
 
-    object StartupLog {
-        private const val TAG = "MoonLiteStartup"
-        private const val FILE_NAME = "MoonLite_startup_crash.log"
-        private var file: File? = null
-        private var publicUri: Uri? = null
-        private var app: Application? = null
+/**
+ * Startup logging disabled.
+ *
+ * Kept as a package-level compatibility shim because MainActivity,
+ * MoonliteService and other existing code still reference StartupLog.
+ *
+ * No file is created, no Downloads entry is written, and no global
+ * uncaught-exception handler is installed.
+ */
+object StartupLog {
 
-        fun init(app: Application) {
-            this.app = app
-            file = File(app.filesDir, FILE_NAME)
-            preparePublicDownloadLog(app)
+    fun init(app: Application) = Unit
 
-            val previous =
-                runCatching { file?.takeIf { it.exists() }?.readText() }.getOrNull()
+    fun mark(message: String) = Unit
 
-            if (!previous.isNullOrBlank()) {
-                Log.e(TAG, "Previous startup diagnostic found:\n$previous")
-            }
-
-            mark("--- process ${android.os.Process.myPid()} ${timestamp()} ---")
-
-            val previousHandler =
-                Thread.getDefaultUncaughtExceptionHandler()
-
-            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-                mark("UNCAUGHT_EXCEPTION thread=${thread.name}")
-                appendThrowable(throwable)
-                previousHandler?.uncaughtException(thread, throwable)
-            }
-        }
-
-        @Synchronized
-        fun mark(message: String) {
-            val line = "${timestamp()} $message\n"
-            Log.d(TAG, message)
-
-            runCatching {
-                file?.appendText(line)
-            }
-
-            appendPublic(line)
-        }
-
-        fun crashPoint(point: String, throwable: Throwable) {
-            mark(
-                "CRASH_POINT:$point " +
-                    "${throwable.javaClass.name}: ${throwable.message}"
-            )
-            appendThrowable(throwable)
-        }
-
-        @Synchronized
-        private fun appendThrowable(throwable: Throwable) {
-            val text = Log.getStackTraceString(throwable) + "\n"
-
+    fun crashPoint(
+        point: String,
+        throwable: Throwable
+    ) = Unit
+}
             runCatching {
                 file?.appendText(text)
             }
