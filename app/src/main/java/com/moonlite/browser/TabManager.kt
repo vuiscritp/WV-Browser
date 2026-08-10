@@ -115,7 +115,11 @@ class TabManager(
     // language in Settings would only ever have affected whichever tab
     // happened to be active at that exact moment, and every tab opened
     // afterward would silently go back to no override at all.
-    private val defaultEmulationProvider: () -> EmulationOverrides? = { null }
+    private val defaultEmulationProvider: () -> EmulationOverrides? = { null },
+    // Where every tab that isn't the one currently shown in MainActivity's
+    // container gets parked — see OverlayHost's own doc for why. Nullable
+    // default keeps this optional so tests/other callers don't need one.
+    private val overlayHost: OverlayHost? = null
 ) {
     private val tabs = mutableListOf<Tab>()
     private var activeIndex = -1
@@ -158,6 +162,10 @@ class TabManager(
         tabs.add(tab)
         configureWebView(webView, tab)
         defaultEmulationProvider()?.let { setEmulation(webView, it) }
+        // Parked in the overlay immediately — from the moment a tab is
+        // created it's attached to a real window, never fully detached,
+        // whether or not MainActivity ever ends up showing it.
+        overlayHost?.parkTab(webView)
         activeIndex = tabs.size - 1
         if (loadUrl != null) BrowserActions.load(webView, loadUrl)
         onActiveTitleChanged(tab.title)
@@ -202,22 +210,45 @@ class TabManager(
         onTabsChanged()
     }
 
-    /** Attaches the active tab's WebView into [container], moving it out of wherever it was. */
+    /**
+     * Attaches the active tab's WebView into [container], moving it out of
+     * wherever it was — including out of the overlay, if it was parked
+     * there. Whatever WebView [container] held *before* this call (the tab
+     * being switched away from, if any) goes to the overlay instead of
+     * being silently orphaned — this used to just call
+     * `container.removeAllViews()` and drop it on the floor, which meant
+     * switching tabs left the previous tab's WebView fully detached from
+     * any window, the same underlying problem as the whole
+     * background-tab-doesn't-render issue, just triggered by a tab switch
+     * instead of backgrounding the app.
+     */
     fun attachActiveTo(container: ViewGroup) {
         val webView = activeWebView() ?: return
-        val currentParent = webView.parent as? ViewGroup
-        if (currentParent === container && container.childCount == 1) return
-        currentParent?.removeView(webView)
+        if (webView.parent === container && container.childCount == 1) return
+        val previous = container.getChildAt(0) as? WebView
         container.removeAllViews()
+        if (previous != null && previous !== webView) overlayHost?.parkTab(previous)
+        (webView.parent as? ViewGroup)?.removeView(webView)
         container.addView(
             webView,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
     }
 
-    /** Detaches whatever is currently shown in [container] without destroying it — tabs keep running headless. */
+    /**
+     * Detaches whatever is currently shown in [container] — typically
+     * called when MainActivity goes away (onStop). Parks it in the overlay
+     * instead of leaving it fully unattached, so it keeps rendering/
+     * updating in the background instead of going dark the moment the UI
+     * closes. Falls back to the old "just detach, nothing" behavior only
+     * when the overlay permission isn't granted (OverlayHost.parkTab is a
+     * no-op in that case) — tabs keep running headless either way, this
+     * only affects whether the engine still considers them "visible".
+     */
     fun detachFrom(container: ViewGroup) {
+        val webView = container.getChildAt(0) as? WebView
         container.removeAllViews()
+        if (webView != null) overlayHost?.parkTab(webView)
     }
 
     /** Applies the currently selected UA preset to every open tab and reloads them. */
@@ -246,6 +277,21 @@ class TabManager(
     }
 
     fun getEmulation(webView: WebView): EmulationOverrides? = tabFor(webView)?.emulationOverrides
+
+    /**
+     * Parks every tab that ISN'T the active one into the overlay — used
+     * right after the "Display over other apps" permission is granted
+     * from Settings, so tabs that were already open (and sitting fully
+     * detached from before the permission existed) get picked up
+     * immediately instead of waiting for the next tab switch/app close to
+     * happen to notice the permission is there now.
+     */
+    fun parkInactiveTabsInOverlay() {
+        val active = activeWebView()
+        tabs.forEach { tab ->
+            if (tab.webView !== active) overlayHost?.parkTab(tab.webView)
+        }
+    }
 
     /** Stages a file for the next <input type=file> click on this tab — see WebChromeClient.onShowFileChooser above. */
     fun setPendingUpload(webView: WebView, uri: android.net.Uri) {
