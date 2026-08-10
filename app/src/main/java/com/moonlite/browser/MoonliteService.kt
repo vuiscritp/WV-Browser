@@ -58,38 +58,45 @@ class MoonliteService : Service() {
         private set
 
     override fun onCreate() {
-        super.onCreate()
+        StartupLog.mark("SERVICE:onCreate:start")
+        try {
+            super.onCreate()
+            StartupLog.mark("SERVICE:super.onCreate:ok")
 
-        // Must run before any WebView is constructed anywhere in the
-        // process (the very first tab is created a few lines below via
-        // tabManager.newTab). Without it, WebView splits long pages into
-        // tiles and only draws the ones currently on screen — fine for a
-        // simple article, but it means a JS-heavy page (long canvas/WASM
-        // content, virtualized lists that render everything at once,
-        // headless scraping that reads the whole DOM) can have stale or
-        // blank regions outside the visible viewport. This trades a little
-        // extra drawing cost for the whole document always being current.
-        runCatching { android.webkit.WebView.enableSlowWholeDocumentDraw() }
-            .onFailure { android.util.Log.w("MoonLite", "enableSlowWholeDocumentDraw failed", it) }
-        android.webkit.WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+            // Do not call enableSlowWholeDocumentDraw() during startup. It is
+            // not required for normal browsing and can force early WebView
+            // initialization on some provider/OEM combinations. Keeping this
+            // path minimal makes a startup crash much easier to localize.
+            android.webkit.WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
+            StartupLog.mark("SERVICE:webview_debugging:ok")
 
-        val startupNotification = buildNotification("Đang khởi động…")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTIFICATION_ID, startupNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            @Suppress("DEPRECATION")
-            startForeground(NOTIFICATION_ID, startupNotification)
-        }
+            val startupNotification = buildNotification("Đang khởi động…")
+            StartupLog.mark("SERVICE:notification_built:ok")
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, startupNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+                } else {
+                    @Suppress("DEPRECATION")
+                    startForeground(NOTIFICATION_ID, startupNotification)
+                }
+                StartupLog.mark("SERVICE:startForeground:ok")
+            } catch (t: Throwable) {
+                StartupLog.crashPoint("SERVICE:startForeground", t)
+                throw t
+            }
 
-        if (AppPrefs.desktopModeEnabled(this)) currentUaPresetId = "chrome_desktop"
-        SearchEngines.currentId = AppPrefs.searchEngineId(this)
+            if (AppPrefs.desktopModeEnabled(this)) currentUaPresetId = "chrome_desktop"
+            SearchEngines.currentId = AppPrefs.searchEngineId(this)
+            StartupLog.mark("SERVICE:prefs:ok")
 
-        overlayHost = OverlayHost(applicationContext)
+            overlayHost = OverlayHost(applicationContext)
+            StartupLog.mark("SERVICE:overlayHost:ok")
 
         // WebView needs a themed context; a bare application Context throws
         // on some WebView builds. This gets reused for every tab's WebView.
         val webViewContext = ContextThemeWrapper(applicationContext, R.style.Theme_AppCompat_NoActionBar)
-        tabManager = TabManager(
+            try {
+                tabManager = TabManager(
             context = webViewContext,
             userScriptManager = userScriptManager,
             currentPresetProvider = { UaPresets.byId(currentUaPresetId) },
@@ -114,27 +121,40 @@ class MoonliteService : Service() {
             defaultEmulationProvider = {
                 AppPrefs.localeOverride(applicationContext)?.let { locale -> EmulationOverrides(locale = locale) }
             },
-            overlayHost = overlayHost
-        )
+                    overlayHost = overlayHost
+                )
+                StartupLog.mark("SERVICE:tabManager:ok")
+            } catch (t: Throwable) {
+                StartupLog.crashPoint("SERVICE:TabManager", t)
+                throw t
+            }
         // Do not construct the first WebView synchronously inside Service.onCreate().
         // WebView initialization can block the main thread while Chromium starts
         // (especially on OEM/old WebView providers). Posting the first tab lets
         // MainActivity finish its own startup and bind to the service before the
         // expensive WebView/Chromium work begins. Functionality is unchanged: the
         // same first tab and homepage are created immediately after startup.
-        android.os.Handler(mainLooper).post {
-            if (!::tabManager.isInitialized) return@post
-            runCatching {
-                if (tabManager.tabCount() == 0) {
-                    tabManager.newTab(SearchEngines.homepage(this))
+            android.os.Handler(mainLooper).post {
+                if (!::tabManager.isInitialized) return@post
+                StartupLog.mark("SERVICE:first_tab:start")
+                runCatching {
+                    if (tabManager.tabCount() == 0) {
+                        tabManager.newTab(SearchEngines.homepage(this))
+                    }
+                    StartupLog.mark("SERVICE:first_tab:ok")
+                }.onFailure {
+                    StartupLog.crashPoint("SERVICE:first_tab", it)
+                    android.util.Log.e("MoonLite", "Failed to create initial tab", it)
+                    updateNotification("Lỗi khởi tạo tab: ${it.message}")
                 }
-            }.onFailure {
-                android.util.Log.e("MoonLite", "Failed to create initial tab", it)
-                updateNotification("Lỗi khởi tạo tab: ${it.message}")
             }
-        }
 
-        startControlServer()
+            startControlServer()
+            StartupLog.mark("SERVICE:controlServer:start_returned")
+        } catch (t: Throwable) {
+            StartupLog.crashPoint("SERVICE:onCreate", t)
+            throw t
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
