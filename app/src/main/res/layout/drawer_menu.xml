@@ -46,7 +46,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="1dp"
-                    android:text="Local browser control"
+                    android:text="@string/local_browser_control"
                     android:textColor="@color/text_dim"
                     android:textSize="11sp" />
             </LinearLayout>
@@ -57,7 +57,7 @@
                 android:id="@+id/menuApiToken"
                 style="@style/DrawerItem"
                 android:drawableStart="@drawable/ic_key"
-                android:text="API token  ·  chạm để sao chép" />
+                android:text="@string/api_copy" />
 
             <View style="@style/DrawerRowDivider" />
 
@@ -65,30 +65,30 @@
                 android:id="@+id/menuSettings"
                 style="@style/DrawerItem"
                 android:drawableStart="@drawable/ic_settings"
-                android:text="Cài đặt" />
+                android:text="@string/settings" />
         </LinearLayout>
 
-        <TextView style="@style/DrawerSectionLabel" android:text="TRÌNH DUYỆT" />
+        <TextView style="@style/DrawerSectionLabel" android:text="@string/browser" />
         <LinearLayout style="@style/DrawerCard">
-            <TextView android:id="@+id/menuDesktopMode" style="@style/DrawerItem" android:drawableStart="@drawable/ic_desktop" android:text="Chế độ Desktop: TẮT" />
+            <TextView android:id="@+id/menuDesktopMode" style="@style/DrawerItem" android:drawableStart="@drawable/ic_desktop" android:text="@string/desktop_mode" />
             <View style="@style/DrawerRowDivider" />
-            <TextView android:id="@+id/menuUa" style="@style/DrawerItem" android:drawableStart="@drawable/ic_agent" android:text="User-Agent…" />
+            <TextView android:id="@+id/menuUa" style="@style/DrawerItem" android:drawableStart="@drawable/ic_agent" android:text="@string/user_agent" />
             <View style="@style/DrawerRowDivider" />
-            <TextView android:id="@+id/menuSearchEngine" style="@style/DrawerItem" android:drawableStart="@drawable/ic_search" android:text="Công cụ tìm kiếm" />
+            <TextView android:id="@+id/menuSearchEngine" style="@style/DrawerItem" android:drawableStart="@drawable/ic_search" android:text="@string/search_engine" />
         </LinearLayout>
 
-        <TextView style="@style/DrawerSectionLabel" android:text="NGÔN NGỮ" />
+        <TextView style="@style/DrawerSectionLabel" android:text="@string/language" />
         <LinearLayout style="@style/DrawerCard">
-            <TextView android:id="@+id/menuTranslateNow" style="@style/DrawerItem" android:drawableStart="@drawable/ic_translate" android:text="Dịch trang này" />
+            <TextView android:id="@+id/menuTranslateNow" style="@style/DrawerItem" android:drawableStart="@drawable/ic_translate" android:text="@string/translate_page" />
             <View style="@style/DrawerRowDivider" />
-            <TextView android:id="@+id/menuAutoTranslate" style="@style/DrawerItem" android:drawableStart="@drawable/ic_autolang" android:text="Auto-dịch: TẮT" />
+            <TextView android:id="@+id/menuAutoTranslate" style="@style/DrawerItem" android:drawableStart="@drawable/ic_autolang" android:text="@string/auto_translate_off" />
         </LinearLayout>
 
-        <TextView style="@style/DrawerSectionLabel" android:text="BẢO MẬT &amp; HIỆU NĂNG" />
+        <TextView style="@style/DrawerSectionLabel" android:text="@string/security_performance" />
         <LinearLayout style="@style/DrawerCard">
-            <TextView android:id="@+id/menuAdblock" style="@style/DrawerItem" android:drawableStart="@drawable/ic_shield" android:text="Chặn quảng cáo: TẮT" />
+            <TextView android:id="@+id/menuAdblock" style="@style/DrawerItem" android:drawableStart="@drawable/ic_shield" android:text="@string/adblock_off" />
             <View style="@style/DrawerRowDivider" />
-            <TextView android:id="@+id/menuDevTools" style="@style/DrawerItem" android:drawableStart="@drawable/ic_devtools" android:text="DevTools (remote debug)" />
+            <TextView android:id="@+id/menuDevTools" style="@style/DrawerItem" android:drawableStart="@drawable/ic_devtools" android:text="@string/devtools" />
         </LinearLayout>
 
     </LinearLayout>
