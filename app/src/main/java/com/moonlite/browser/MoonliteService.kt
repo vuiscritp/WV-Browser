@@ -48,6 +48,13 @@ class MoonliteService : Service() {
     private val uiListeners = mutableSetOf<() -> Unit>()
     private val autoTranslateHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val serviceStartTime: Long = System.currentTimeMillis()
+    // NOT initialized here with applicationContext: field initializers run
+    // as part of the Service's own constructor, which executes *before*
+    // Android calls attachBaseContext() on it — applicationContext isn't
+    // safely available yet at that point. Assigned in onCreate() instead,
+    // same as tabManager below.
+    lateinit var overlayHost: OverlayHost
+        private set
 
     override fun onCreate() {
         // Must run before any WebView is constructed anywhere in the
@@ -66,6 +73,8 @@ class MoonliteService : Service() {
 
         if (AppPrefs.desktopModeEnabled(this)) currentUaPresetId = "chrome_desktop"
         SearchEngines.currentId = AppPrefs.searchEngineId(this)
+
+        overlayHost = OverlayHost(applicationContext)
 
         // WebView needs a themed context; a bare application Context throws
         // on some WebView builds. This gets reused for every tab's WebView.
@@ -94,7 +103,8 @@ class MoonliteService : Service() {
             onChallengeDetected = { url -> notifyChallengeDetected(url) },
             defaultEmulationProvider = {
                 AppPrefs.localeOverride(applicationContext)?.let { locale -> EmulationOverrides(locale = locale) }
-            }
+            },
+            overlayHost = overlayHost
         )
         tabManager.newTab(SearchEngines.homepage(this))
 
@@ -107,7 +117,13 @@ class MoonliteService : Service() {
 
     override fun onDestroy() {
         controlServer?.stop()
+        if (::overlayHost.isInitialized) overlayHost.teardown()
         super.onDestroy()
+    }
+
+    /** Called from Settings right after the "Display over other apps" permission is granted. */
+    fun reparkInactiveTabs() {
+        if (::tabManager.isInitialized) tabManager.parkInactiveTabsInOverlay()
     }
 
     fun setUaPreset(id: String) {
