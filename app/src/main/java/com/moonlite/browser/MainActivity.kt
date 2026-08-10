@@ -86,8 +86,12 @@ class MainActivity : AppCompatActivity() {
     private fun tabManager() = service?.tabManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        StartupLog.mark("MAIN:onCreate:start")
+        try {
+            super.onCreate(savedInstanceState)
+            StartupLog.mark("MAIN:super.onCreate:ok")
+            setContentView(R.layout.activity_main)
+            StartupLog.mark("MAIN:setContentView:ok")
 
         drawerLayout = findViewById(R.id.drawerLayout)
         tabStrip = findViewById(R.id.tabStrip)
@@ -107,10 +111,27 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupDrawer()
         setupBackHandling()
+        StartupLog.mark("MAIN:ui_setup:ok")
 
         val serviceIntent = Intent(this, MoonliteService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
-        bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+        try {
+            ContextCompat.startForegroundService(this, serviceIntent)
+            StartupLog.mark("MAIN:startForegroundService:ok")
+        } catch (t: Throwable) {
+            StartupLog.crashPoint("MAIN:startForegroundService", t)
+            throw t
+        }
+        try {
+            bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE)
+            StartupLog.mark("MAIN:bindService:ok")
+        } catch (t: Throwable) {
+            StartupLog.crashPoint("MAIN:bindService", t)
+            throw t
+        }
+        } catch (t: Throwable) {
+            StartupLog.crashPoint("MAIN:onCreate", t)
+            throw t
+        }
     }
 
     /**
