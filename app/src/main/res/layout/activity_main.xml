@@ -12,7 +12,6 @@
         android:background="@color/navy_bg">
 
         <LinearLayout
-            android:id="@+id/tabStripScroller"
             android:layout_width="match_parent"
             android:layout_height="34dp"
             android:orientation="horizontal"
@@ -20,6 +19,7 @@
             android:background="@color/navy_dark">
 
             <HorizontalScrollView
+                android:id="@+id/tabStripScroller"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_weight="1"
