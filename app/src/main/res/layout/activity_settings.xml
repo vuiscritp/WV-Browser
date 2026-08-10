@@ -112,7 +112,7 @@
 
             <TextView style="@style/SettingsSection" android:text="ABOUT" />
             <LinearLayout style="@style/SettingsCard">
-                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_launcher" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="MoonLite Browser"/><TextView style="@style/SettingsValue" android:text="v0.1 · Android WebView control browser"/></LinearLayout></LinearLayout>
+                <LinearLayout style="@style/SettingsRow"><ImageView style="@style/SettingsIcon" android:src="@drawable/ic_launcher" android:tint="@color/text_white"/><LinearLayout style="@style/SettingsTextGroup"><TextView style="@style/SettingsTitle" android:text="MoonLite Browser"/><TextView style="@style/SettingsValue" android:text="1.16.2 · Android WebView control browser"/></LinearLayout></LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
