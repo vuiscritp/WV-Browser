@@ -91,6 +91,7 @@ class MainActivity : AppCompatActivity() {
             super.onCreate(savedInstanceState)
             StartupLog.mark("MAIN:super.onCreate:ok")
             setContentView(R.layout.activity_main)
+            ThemeManager.apply(findViewById(android.R.id.content), this)
             StartupLog.mark("MAIN:setContentView:ok")
 
         drawerLayout = findViewById(R.id.drawerLayout)
