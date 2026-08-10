@@ -78,7 +78,7 @@ class MoonliteService : Service() {
 
         // WebView needs a themed context; a bare application Context throws
         // on some WebView builds. This gets reused for every tab's WebView.
-        val webViewContext = ContextThemeWrapper(applicationContext, R.style.Theme_AppCompat_DayNight_NoActionBar)
+        val webViewContext = ContextThemeWrapper(applicationContext, R.style.Theme_AppCompat_NoActionBar)
         tabManager = TabManager(
             context = webViewContext,
             userScriptManager = userScriptManager,
@@ -191,7 +191,7 @@ class MoonliteService : Service() {
         val notification = NotificationCompat.Builder(this, channelId)
             .setContentTitle("Cần giải challenge thủ công")
             .setContentText(if (url.isBlank()) "Một tab đang gặp Cloudflare/CAPTCHA." else url)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setAutoCancel(true)
@@ -224,7 +224,7 @@ class MoonliteService : Service() {
         return NotificationCompat.Builder(this, channelId)
             .setContentTitle("MoonLite đang chạy nền")
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(contentIntent)
