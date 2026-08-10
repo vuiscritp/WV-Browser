@@ -55,7 +55,15 @@ class MainActivity : AppCompatActivity() {
     private var service: MoonliteService? = null
     private var bound = false
 
-    private val uiListener: () -> Unit = { runOnUiThread { renderTabStrip() } }
+    private val uiListener: () -> Unit = {
+        runOnUiThread {
+            renderTabStrip()
+            // The first WebView is created asynchronously by MoonliteService
+            // so startup cannot be blocked by Chromium initialization. Attach
+            // it as soon as the service reports that the tab exists.
+            tabManager()?.attachActiveTo(webViewContainer)
+        }
+    }
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* granted or not, nothing else to do */ }
@@ -91,8 +99,11 @@ class MainActivity : AppCompatActivity() {
         android.webkit.WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         requestNotificationPermissionIfNeeded()
-        suggestIgnoreBatteryOptimizations()
 
+        // Do not launch the battery-optimization Settings activity during startup.
+        // Some ColorOS builds treat this as an unsolicited background transition
+        // and can interrupt the foreground-service startup sequence. The user can
+        // still grant the exemption manually from Settings.
         setupToolbar()
         setupDrawer()
         setupBackHandling()
